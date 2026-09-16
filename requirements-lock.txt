@@ -118,7 +118,7 @@ pydash==8.1.0
 pygments==2.21.0
 pyjwt==2.14.0
 pyparsing==3.3.2
-pytest==8.4.2
+pytest==9.0.3
 python-dateutil==2.9.0.post0
 pytz==2025.2
 pyyaml==6.0.3

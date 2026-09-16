@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8,<9", "nbformat>=5.10,<6", "ipykernel>=6.29,<7"]
+dev = ["pytest>=8,<10", "nbformat>=5.10,<6", "ipykernel>=6.29,<7"]
 
 [tool.setuptools.packages.find]
 include = ["mlops_lab*", "components*"]
