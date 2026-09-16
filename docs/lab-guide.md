@@ -4,19 +4,23 @@
 
 모든 명령은 **Azure Compute Instance의 Terminal, 프로젝트 루트**에서 실행합니다. `config.json`의 Workspace·Compute·endpoint가 본인에게 지정된 값인지 확인합니다. Studio의 Job/Endpoint 화면은 **새 탭**에서 엽니다.
 
+**블록 하나 실행 → 결과 확인 → 다음 블록** 순서입니다. 02-B·04-C 같은 하위 단계 번호는 Notebook과 같습니다. `&&` 앞 명령이 실패하면 뒤 명령은 실행되지 않습니다.
+
+실행 위치·VM 사양·다른 옵션은 [학습·추론 인프라 안내](infrastructure.md)의 **선택 읽기**입니다. 이 문서의 실습에서는 기본 구성을 바꾸지 않습니다.
+
 ## 준비 — 실행명 한 번 정하기
 
 처음에는 아래 블록을 그대로 실행합니다. 다시 연결했다면 먼저 기록한 값으로 `LAB_ID="기존 값"`을 설정한 뒤 실행합니다.
 
 ```bash
-source "$HOME/.venvs/aml-mlops-lab/bin/activate"
-LAB_ID="${LAB_ID:-$(date -u +%Y%m%d%H%M%S)-$(python -c 'import uuid; print(uuid.uuid4().hex[:6])')}"
-export LAB_ID
-BASELINE_RUN="baseline-${LAB_ID}"
-BAD_RUN="bad-${LAB_ID}"
-RETRAIN_RUN="retrain-${LAB_ID}"
-MODEL_V1="${LAB_ID}1"
-MODEL_V2="${LAB_ID}2"
+source "$HOME/.venvs/aml-mlops-lab/bin/activate" &&
+LAB_ID="${LAB_ID:-$(date -u +%Y%m%d%H%M%S)-$(python -c 'import uuid; print(uuid.uuid4().hex[:6])')}" &&
+export LAB_ID &&
+BASELINE_RUN="baseline-${LAB_ID}" &&
+BAD_RUN="bad-${LAB_ID}" &&
+RETRAIN_RUN="retrain-${LAB_ID}" &&
+MODEL_V1="${LAB_ID}1" &&
+MODEL_V2="${LAB_ID}2" &&
 printf '기록할 LAB_ID: %s\n' "$LAB_ID"
 ```
 
@@ -24,16 +28,15 @@ printf '기록할 LAB_ID: %s\n' "$LAB_ID"
 
 ## 01 · 자산 등록
 
-**할 일:** 데이터 버전 2개와 재사용할 처리 단계 3개를 등록합니다.
+**할 일:** 데이터 버전 2개와 재사용할 처리 단계 3개를 등록합니다. `assets` 명령이 데이터 생성도 수행하므로 별도 생성 명령은 필요 없습니다.
 
 ```bash
-python -m mlops_lab.cli generate-data
 python -m mlops_lab.cli assets
 ```
 
 **Studio에서 확인:** **Data → `mlops-synthetic-regression` → v1/v2**, **Components → `mlops_prepare` / `mlops_train` / `mlops_evaluate`**.
 
-**완료 조건:** 데이터는 `uri_file`, 컴포넌트는 v3, 환경은 `sklearn-1.5:53`입니다. `data/manifest.json`에서 두 데이터의 전체 hash는 다르고 검증 데이터 hash는 같습니다.
+**완료 조건:** 데이터는 `uri_file`, 컴포넌트는 v3, 환경은 `sklearn-1.5:53`입니다. `data/manifest.json`에서 두 데이터의 전체 hash(내용을 대조하는 값)는 다르고 검증 데이터 hash는 같습니다.
 
 | 데이터 | 학습 행 | 검증 행 |
 |---|---:|---:|
@@ -46,15 +49,21 @@ python -m mlops_lab.cli assets
 
 **할 일:** 데이터 v1으로 기본 모델을 학습합니다. RMSE는 예측 오차이며 **작을수록 좋습니다**.
 
+### 02-A · 학습 제출
+
+한 번만 실행합니다. 출력된 `studio_url`을 새 탭에서 엽니다.
+
 ```bash
 python -m mlops_lab.cli submit --run "$BASELINE_RUN" \
   --data-version 1 --alpha 1 --max-rmse 3
 ```
 
-출력된 `studio_url`을 새 탭에서 엽니다. 이어서 같은 실행을 기다립니다.
+### 02-B · 대기·결과 확인
+
+같은 실행이 완료되기를 기다린 뒤 보고서를 읽습니다.
 
 ```bash
-python -m mlops_lab.cli wait --run "$BASELINE_RUN"
+python -m mlops_lab.cli wait --run "$BASELINE_RUN" &&
 python -m mlops_lab.cli report --run "$BASELINE_RUN"
 ```
 
@@ -66,52 +75,84 @@ python -m mlops_lab.cli report --run "$BASELINE_RUN"
 
 ## 03 · 품질 게이트
 
-**할 일:** 큰 규제로 성능이 나빠지는 모델을 만들고, Registry(모델 보관소)에 들어가지 못하는지 확인합니다.
+**할 일:** 모델 설정 `alpha`를 일부러 크게 해 성능을 낮추고, Workspace의 **Models(모델 목록)**에 등록되지 못하는지 확인합니다.
 
 ```bash
 python -m mlops_lab.cli submit --run "$BAD_RUN" \
   --data-version 1 --alpha 1000000 --max-rmse 3
 ```
 
-**다음 명령은 오류로 끝나야 정상**입니다. 이후 확인 명령은 별도로 실행합니다.
+### 03-A · 의도된 오류 1/2
+
+**다음 명령은 `ended with Failed` 오류로 끝나야 정상**입니다. 오류 뒤에도 아래의 실패 원인 확인 블록은 실행합니다.
 
 ```bash
 python -m mlops_lab.cli wait --run "$BAD_RUN"
 ```
 
+**실패 원인 확인:** `inspect`의 `status`·`children`과 `report`의 `approved`·`rmse`를 봅니다.
+
 ```bash
-python -m mlops_lab.cli inspect --run "$BAD_RUN"
+python -m mlops_lab.cli inspect --run "$BAD_RUN" &&
 python -m mlops_lab.cli report --run "$BAD_RUN"
 ```
 
 **Studio에서 확인:** **Jobs → 해당 실행 → `evaluate_gate` → Metrics / Outputs + logs**.
 
-**완료 조건:** 네 가지가 모두 맞아야 합니다: 부모 `Failed`, 실패 단계 `evaluate_gate`, `approved=false`, **RMSE > 3**(예상 약 23.4). 다른 단계/인증/네트워크 오류면 의도된 실패가 아니므로 멈춥니다.
+**03-A 확인 조건:** 네 가지가 모두 맞아야 합니다: 부모 `Failed`, 실패 단계 `evaluate_gate`, `approved=false`, **RMSE > 3**(예상 약 23.4). 다른 단계/인증/네트워크 오류면 의도된 실패가 아니므로 멈춥니다. 아직 03 전체가 완료된 것은 아닙니다.
 
-마지막으로 다음 등록 명령을 실행합니다. **`Registration blocked`로 실패**해야 하며, Models에 `${LAB_ID}9` 버전이 없어야 합니다.
+### 03-B · 의도된 오류 2/2
+
+위 네 조건을 확인한 뒤 다음 등록 명령을 실행합니다. **`Registration blocked`로 실패**해야 하며, Models에 `${LAB_ID}9` 버전이 없어야 합니다.
 
 ```bash
 python -m mlops_lab.cli register --run "$BAD_RUN" --version "${LAB_ID}9"
 ```
 
-두 실패와 등록 부재를 확인했으면 **04로 진행**합니다. 이것은 제공 코드의 승격 통제이며, Workspace 관리자의 모든 별도 API 등록을 금지하는 조직 정책은 아닙니다.
+**완료 조건:** 03-A의 네 조건, 03-B의 `Registration blocked`, Models에 거절 버전 `${LAB_ID}9`가 없음을 **모두** 확인했습니다. 이때만 **04로 진행**합니다. 이것은 제공 코드의 승격 통제이며, Workspace 관리자의 모든 별도 API 등록을 금지하는 조직 정책은 아닙니다.
 
 ## 04 · blue 배포
 
 **할 일:** 02에서 통과한 모델을 등록하고 `blue`(기존 모델)에 배포합니다. **여기부터 학습과 별개의 추론 VM 비용이 발생합니다.**
 
+### 04-A · 모델 등록
+
 ```bash
 python -m mlops_lab.cli register --run "$BASELINE_RUN" --version "$MODEL_V1"
-python -m mlops_lab.cli deploy --model-version "$MODEL_V1" --deployment blue
 ```
 
-배포가 `Succeeded`가 된 뒤 호출합니다. `Submitted`/`Creating`/`ready=false`는 완료가 아닙니다.
+### 04-B · blue 배포 제출
+
+한 번만 실행합니다. `--no-wait`는 배포 완료까지 기다리지 않는 옵션입니다.
 
 ```bash
-python -m mlops_lab.cli invoke --deployment blue
+python -m mlops_lab.cli deploy --model-version "$MODEL_V1" --deployment blue --no-wait
+```
+
+### 04-C · blue 배포 대기
+
+`Submitted`/`Creating`/`ready=false`는 완료가 아닙니다. 아래 결과가 **`provisioning_state: Succeeded`, `ready: true`**일 때만 다음으로 이동합니다. timeout이면 **04-C만** 다시 실행합니다.
+
+```bash
+python -m mlops_lab.cli wait-deployment --deployment blue
+```
+
+### 04-D · blue 기본 경로 설정
+
+```bash
 python -m mlops_lab.cli traffic --deployment blue
+```
+
+### 04-E · blue 응답 확인
+
+두 응답의 **`predictions` 배열**을 비교합니다. 06의 롤백 확인에도 쓰므로 blue의 숫자 5개를 기록합니다.
+
+```bash
+python -m mlops_lab.cli invoke --deployment blue &&
 python -m mlops_lab.cli invoke
 ```
+
+기본 호출의 `deployment`가 **`traffic-routed`인 것은 정상**입니다. 이 문자열이 blue/green을 알려 주지는 않습니다. **traffic 설정과 `predictions` 일치**를 함께 확인합니다.
 
 **Studio에서 확인:** **Models → `mlops-ridge` → 해당 버전**의 `source_job` / `quality_gate=passed`; **Endpoints → 해당 endpoint → blue**의 상태와 traffic.
 
@@ -121,13 +162,32 @@ python -m mlops_lab.cli invoke
 
 ## 05 · 재학습
 
-**할 일:** 학습 행 400개가 추가된 데이터 v2로 같은 파이프라인을 실행합니다.
+**할 일:** 학습 행 400개가 추가된 데이터 v2로 같은 파이프라인을 실행합니다. 모델 설정도 **02의 `alpha=1` → `alpha=0.1`**로 바꿉니다. 오차 차이를 데이터 증가만의 효과로 해석하지 않습니다.
+
+### 05-A · 재학습 제출
 
 ```bash
 python -m mlops_lab.cli submit --run "$RETRAIN_RUN" \
   --data-version 2 --alpha 0.1 --max-rmse 3
-python -m mlops_lab.cli wait --run "$RETRAIN_RUN"
+```
+
+### 05-B · 대기·비교
+
+완료 후 **02와 05의 보고서를 나란히** 확인합니다.
+
+```bash
+python -m mlops_lab.cli wait --run "$RETRAIN_RUN" &&
+python -m mlops_lab.cli report --run "$BASELINE_RUN" &&
 python -m mlops_lab.cli report --run "$RETRAIN_RUN"
+```
+
+두 보고서의 `validation_sha256`가 같고 새 모델이 `approved=true`, RMSE ≤ 3인지 확인합니다.
+
+### 05-C · 새 모델 등록
+
+05-B의 조건을 통과했을 때만 실행합니다. **모델 등록만으로 기본 endpoint가 바뀌지는 않습니다.** 전환은 06에서 수행합니다.
+
+```bash
 python -m mlops_lab.cli register --run "$RETRAIN_RUN" --version "$MODEL_V2"
 ```
 
@@ -141,25 +201,56 @@ python -m mlops_lab.cli register --run "$RETRAIN_RUN" --version "$MODEL_V2"
 
 **할 일:** `green`(새 모델)을 먼저 직접 확인하고 기본 endpoint를 전환했다가 blue로 되돌립니다.
 
+### 06-A · green 배포 제출
+
+한 번만 실행합니다.
+
 ```bash
-python -m mlops_lab.cli deploy --model-version "$MODEL_V2" --deployment green
+python -m mlops_lab.cli deploy --model-version "$MODEL_V2" --deployment green --no-wait
+```
+
+### 06-B · green 대기·직접 호출
+
+```bash
+python -m mlops_lab.cli wait-deployment --deployment green &&
 python -m mlops_lab.cli invoke --deployment green
 ```
 
-green 준비·직접 호출 성공을 확인한 뒤:
+`Succeeded`, `ready=true`, 숫자 5개를 확인하고 green의 `predictions`를 기록합니다. **아직 기본 경로는 blue**입니다.
+
+### 06-C · green으로 전환
 
 ```bash
 python -m mlops_lab.cli traffic --deployment green
-python -m mlops_lab.cli invoke
-python -m mlops_lab.cli traffic --deployment blue
+```
+
+### 06-D · green 기본 응답 확인
+
+```bash
 python -m mlops_lab.cli invoke
 ```
+
+Studio traffic이 **green 100%**이고 `predictions`가 **06-B의 green 직접 응답과 일치**해야 합니다. 이 확인을 마친 뒤에만 롤백합니다.
+
+### 06-E · blue로 롤백
+
+```bash
+python -m mlops_lab.cli traffic --deployment blue
+```
+
+### 06-F · blue 기본 응답 확인
+
+```bash
+python -m mlops_lab.cli invoke
+```
+
+Studio traffic이 **blue 100%**이고 `predictions`가 **04-E에 기록한 blue 응답과 일치**해야 합니다.
 
 **Studio에서 확인:** **Endpoints → 해당 endpoint → traffic**이 green 100% → blue 100%로 바뀝니다.
 
 **완료 조건:** 기본 경로 응답이 **02의 모델(blue) → 05의 모델(green) → blue** 순서로 확인됩니다. 직접 호출의 `--deployment green`은 traffic 설정을 우회하므로 그것만으로 전환을 증명하지 않습니다.
 
-새 모델의 직접 응답과 일반 호출 응답을 비교합니다. 다르면 전환 반영 여부를 확인하고 일반 호출만 다시 수행합니다. 90/10 canary나 shadow traffic은 이번 실습에 포함하지 않습니다.
+응답이 다르면 전환 반영 여부를 확인하고 **06-D 또는 06-F의 호출만** 다시 수행합니다. 90/10 canary나 shadow traffic은 이번 실습에 포함하지 않습니다.
 
 ## 07 · 비용 정리
 
@@ -171,9 +262,9 @@ python -m mlops_lab.cli cleanup-runtime --delete-endpoint
 
 **Studio에서 확인:** **Endpoints**, **Compute → Compute instances / Compute clusters**.
 
-**완료 조건:** endpoint 없음, Instance `Stopped`, Cluster **실제 노드 0**. Instance 자신을 중지하므로 Terminal/Notebook 연결이 끊기는 것은 정상일 수 있습니다.
+**완료 조건:** 본인 endpoint 없음, Instance `Stopped`, 전용 Cluster **실제 노드 0**. 공유 Cluster는 [개인 종료 기준](troubleshooting.md#공유-학습-클러스터의-정리)을 따릅니다. Instance 자신을 중지하므로 Terminal/Notebook 연결이 끊기는 것은 정상일 수 있습니다.
 
-최소 노드 0 설정만 보고 끝내지 않습니다. 마지막 Job/이미지 빌드 후 120초 idle 축소를 기다리고 실제 0노드를 확인합니다. Instance 중지만으로 Cluster Job과 endpoint가 종료되지는 않습니다.
+전용 Cluster는 최소 노드 0 설정만 보고 끝내지 않습니다. 마지막 Job/이미지 빌드 후 120초 idle 축소를 기다리고 실제 0노드를 확인합니다. 공유 Cluster를 0노드로 만들려고 다른 사람의 Job을 취소하지 않습니다. Instance 중지만으로 Cluster Job과 endpoint가 종료되지는 않습니다.
 
 **남는 비용:** Premium ACR·Private Endpoint·Storage·디스크 등은 별도입니다. 보관하지 않을 때만 강사가 [전체 RG 정리](troubleshooting.md#전체-환경이-더-이상-필요하지-않은-경우)를 수행합니다.
 

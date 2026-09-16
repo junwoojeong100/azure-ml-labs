@@ -2,6 +2,8 @@
 
 **학습자는 [학습자 시작 안내](learner-start.md)로 이동합니다.** 이 문서의 Azure 생성·권한·네트워크 작업은 새 실습 환경을 준비하는 강사용입니다.
 
+구성의 역할·VM 사양·다른 Compute/Endpoint 선택지는 [학습·추론 인프라 안내](infrastructure.md)에 있습니다. 이 문서는 그중 **현재 실습의 기본 구성**만 준비합니다.
+
 최종 구성은 **Workspace managed network + keyless Storage**입니다. 학습 Compute와 Managed Online Endpoint가 각각 Storage에 접근할 수 있도록 Azure ML이 필요한 outbound Private Endpoint를 관리합니다. 사용자가 만든 VNet에 학습 클러스터만 넣는 것으로는 Online Endpoint의 Storage 접근까지 해결되지 않습니다.
 
 ## 1. 관리 PC와 계정 설정
@@ -141,6 +143,8 @@ Studio의 **Manage → Quota**에서 AML 코어 쿼터를 확인합니다. 일�
 
 인프라 준비가 끝나면 [학습자 시작 안내](learner-start.md)의 준비 A–E를 수행합니다. 파일 배치·설정·kernel·로그인 절차는 그 문서 하나에서 관리합니다. 기존 링크를 위해 이 제목은 유지합니다.
 
+**학습자에게 전달할 것:** 가이드와 같은 브랜치의 전체 프로젝트 ZIP, 구독·tenant·RG·Workspace 정보, 본인 Instance·학습 Cluster·본인 endpoint 이름입니다. Studio의 본인 사용자 폴더도 함께 확인합니다. 여러 학습자가 실습할 때 **Instance와 endpoint는 개인별로 지정**하고, `config.json`의 Compute 이름까지 본인 환경과 맞는지 확인합니다. 학습 Cluster가 전용인지 공유인지도 알려 주며, 공유 Cluster의 최종 0노드 확인은 모든 학습자 종료 후 강사가 수행합니다. Notebook 한 파일이나 강사 계정의 설정만 전달하지 않습니다.
+
 ## 선택: 대화형 로그인 없이 실행하는 강사용 runner
 
 관리 PC가 private Storage에 접근할 수 없다면 `infra/private-access.bicep`로 **별도 private runner**를 만들 수 있습니다. 이 VM은 학습 서버가 아니라 동일 SDK 명령을 실행하는 임시 제어용 VM입니다.
@@ -184,7 +188,7 @@ python -m scripts.remote_runner collect
 
 새 환경은 처음부터 managed network를 사용하므로 이 작업이 필요 없습니다. 기존 환경의 전환은 별도 작업입니다.
 
-**공식 요구사항:** 기존 Compute Instance, Compute Cluster, Managed Online Endpoint를 먼저 삭제하고 managed network를 활성화한 뒤 재생성해야 합니다. Storage의 데이터/Notebook, Job 이력, Registry 모델과 Compute의 로컬 디스크는 구분해야 합니다. 로컬 작업을 백업하고 대상 리소스를 확인하지 않은 채 전환하지 않습니다. 활성화한 managed network는 다시 Disabled로 되돌릴 수 없습니다.
+**공식 요구사항:** 기존 Compute Instance, Compute Cluster, Managed Online Endpoint를 먼저 삭제하고 managed network를 활성화한 뒤 재생성해야 합니다. Storage의 데이터/Notebook, Job 이력, Models의 등록 모델과 Compute의 로컬 디스크는 구분해야 합니다. 로컬 작업을 백업하고 대상 리소스를 확인하지 않은 채 전환하지 않습니다. 활성화한 managed network는 다시 Disabled로 되돌릴 수 없습니다.
 
 ```bash
 # 필요한 백업과 해당 Workspace의 Compute/endpoint 정리가 끝난 뒤에만:
