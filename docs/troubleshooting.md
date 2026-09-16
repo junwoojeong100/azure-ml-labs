@@ -1,5 +1,46 @@
 # 문제 해결과 비용 정리
 
+학습자는 먼저 [기다릴지 고칠지 판단표](learner-start.md#기다릴지-고칠지-판단하기)를 사용합니다. **03의 품질 게이트 실패 외의 오류를 정상으로 넘기지 않습니다.** 아래 기술 진단은 그 다음에 확인합니다.
+
+## 기존 실행을 이어가기
+
+**새 Job이나 배포를 만드는 것이 아니라, 기존 실행을 조회하고 기다리는 것이 먼저입니다.**
+
+Notebook에서 kernel/Compute를 바꿨다면 00의 `RESUME_LAB_ID`에 기록한 `LAB_ID`를 넣고 **00만 재실행**합니다. 이전 프로젝트의 `artifacts/runs/`가 있어야 하며, 이후 위치는 다음과 같습니다.
+
+| 마지막으로 완료한 일 | 이어갈 셀 |
+|---|---|
+| 02 Job 제출 | 02의 `wait_for_run` / 보고서 셀 |
+| 03 Job 제출 | 03-A 대기 → 실패 원인 확인 → 03-B 등록 차단 |
+| 04 blue 배포 제출 | 04의 `wait_for_deployment` 셀 |
+| 05 재학습 제출 | 05의 대기·비교 셀 |
+| 06 green 배포 제출 | 06의 대기·직접 호출 셀 |
+| traffic 전환 요청 | 해당 모델의 호출·비교 셀. traffic/배포 요청부터 반복하지 않음 |
+
+Terminal을 다시 열었다면 프로젝트 루트로 `cd`하고 환경을 활성화합니다. **기존 `LAB_ID`를 설정한 뒤** [CLI 준비 블록](lab-guide.md)을 실행해 실행명 변수를 복원합니다.
+
+```bash
+source "$HOME/.venvs/aml-mlops-lab/bin/activate"
+LAB_ID="<기록한 기존 LAB_ID>"
+BASELINE_RUN="baseline-${LAB_ID}"
+python -m mlops_lab.cli inspect --run "$BASELINE_RUN"
+```
+
+조회 결과가 `Queued`/`Running`이면 같은 Job을 기다리고, 이미 `Completed`이면 보고서를 읽습니다. 아래는 **둘 중 해당 명령만** 실행합니다.
+
+```bash
+python -m mlops_lab.cli wait --run "$BASELINE_RUN"
+python -m mlops_lab.cli report --run "$BASELINE_RUN"
+```
+
+배포가 `Submitted`/`Creating`이면 새로 배포하지 않고 기다립니다. 대상이 green이면 `blue`를 `green`으로 바꿉니다.
+
+```bash
+python -m mlops_lab.cli wait-deployment --deployment blue
+```
+
+**Job URL은 새 탭에서 확인합니다.** Notebook의 실행 중 탭을 다른 Workspace 메뉴로 전환하거나 kernel을 바꾸면 셀 실행/변수 상태에 영향을 줄 수 있습니다. [공식 Notebook 동작](https://learn.microsoft.com/azure/machine-learning/how-to-run-jupyter-notebooks?view=azureml-api-2#change-the-notebook-environment)을 참고합니다.
+
 ## 증상별 확인 순서
 
 | 증상 | 먼저 확인할 것 | 이 실습의 대응 |
@@ -44,7 +85,13 @@ az ml online-deployment delete --name blue --endpoint-name "<실습 ENDPOINT_NAM
 
 ## 상태를 확인하는 명령
 
-먼저 [환경 준비](setup.md)의 `SUB`, `RG`, `WS` 변수를 설정합니다. 아래 명령은 관리 PC에서도 사용할 수 있는 관리 평면 조회입니다.
+프로젝트 루트에서 활성화된 환경으로 아래 변수를 읽습니다. 강사용 리소스 생성 명령을 다시 실행할 필요는 없습니다. 이어지는 Azure 명령은 관리 평면 조회입니다.
+
+```bash
+SUB=$(python -c 'from mlops_lab.config import Settings; print(Settings.load().subscription_id)')
+RG=$(python -c 'from mlops_lab.config import Settings; print(Settings.load().resource_group)')
+WS=$(python -c 'from mlops_lab.config import Settings; print(Settings.load().workspace)')
+```
 
 ```bash
 az ml compute list -g "$RG" -w "$WS" --subscription "$SUB" \
