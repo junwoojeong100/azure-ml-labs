@@ -1,0 +1,14 @@
+$schema: https://azuremlschemas.azureedge.net/latest/amlCompute.schema.json
+name: cpu-private-only
+type: amlcompute
+size: Standard_DS3_v2
+tier: dedicated
+min_instances: 0
+max_instances: 2
+idle_time_before_scale_down: 120
+ssh_public_access_enabled: false
+enable_node_public_ip: false
+identity:
+  type: user_assigned
+  user_assigned_identities:
+    - resource_id: <COMPUTE_IDENTITY_RESOURCE_ID>

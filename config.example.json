@@ -1,0 +1,17 @@
+{
+  "subscription_id": "<SUBSCRIPTION_ID>",
+  "tenant_id": "<TENANT_ID>",
+  "expected_account": "<YOUR_AZURE_LOGIN>",
+  "resource_group": "rg-aml-mlops-lab-<UNIQUE_SUFFIX>",
+  "workspace": "mlw-mlops-lab-<UNIQUE_SUFFIX>",
+  "location": "eastus2",
+  "compute_cluster": "cpu-private-only",
+  "compute_instance": "ci-mlops-private",
+  "endpoint_name": "mlops-reg-<UNIQUE_SUFFIX>",
+  "data_name": "mlops-synthetic-regression",
+  "model_name": "mlops-ridge",
+  "experiment_name": "studio-compute-mlops",
+  "environment": "azureml://registries/azureml/environments/sklearn-1.5/versions/53",
+  "component_version": "3",
+  "deployment_instance_type": "Standard_DS3_v2"
+}

@@ -1,0 +1,14 @@
+$schema: https://azuremlschemas.azureedge.net/latest/workspace.schema.json
+name: mlw-mlops-lab
+display_name: Studio and Compute MLOps Lab
+description: Synthetic-data MLOps workshop; not a production workspace.
+location: eastus2
+identity:
+  type: system_assigned
+system_datastores_auth_mode: identity
+public_network_access: Enabled
+managed_network:
+  isolation_mode: allow_internet_outbound
+tags:
+  purpose: aml-mlops-hands-on
+  environment: lab

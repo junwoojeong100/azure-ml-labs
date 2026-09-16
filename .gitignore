@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*.egg-info/
+.DS_Store
+config.json
+data/
+artifacts/
+mlruns/
+*.zip
+.env
+.playwright-mcp/
+.ipynb_checkpoints/

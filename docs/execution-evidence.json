@@ -1,0 +1,131 @@
+{
+  "workspace": "mlw-mlops-managed-20260916",
+  "resource_group": "rg-aml-mlops-lab-20260916",
+  "environment": "azureml://registries/azureml/environments/sklearn-1.5/versions/53",
+  "component_version": "3",
+  "component_source_sha256": "94c189f2bdc7debc60ceae3e16a4d8598dd79a959d16d81a45b0f1528f0d6f3b",
+  "runs": {
+    "baseline": {
+      "job_name": "gray_skin_l29cw3mkv0",
+      "studio_url": "https://ml.azure.com/runs/gray_skin_l29cw3mkv0?wsid=%2Fsubscriptions%2F51531604-2337-4c05-bc05-3c3d4ff154e5%2Fresourcegroups%2Frg-aml-mlops-lab-20260916%2Fworkspaces%2Fmlw-mlops-managed-20260916&tid=46e9cdaa-fed3-4131-aa28-c1fc8a8a043a",
+      "status": "Completed",
+      "data_version": "1",
+      "alpha": 1.0,
+      "evaluation": {
+        "rmse": 1.8360781765787466,
+        "mae": 1.4924058233057866,
+        "r2": 0.993755845425547,
+        "max_rmse": 3.0,
+        "approved": true,
+        "validation_rows": 200,
+        "validation_sha256": "741995abd68f1d84acbd676b0a65ed55baf94bf2a8d5b76a644e8883a979db52",
+        "source_sha256": "050b53529e391240f058131223e97083da48ca0de346ee028c6bb792822837b2",
+        "model_sha256": "7ccd27b3681213431c3d8c3a67c2296743505be44e8c6e0c97c9de04413927fb"
+      }
+    },
+    "rejected": {
+      "job_name": "careful_beard_mk7l7y9z2p",
+      "studio_url": "https://ml.azure.com/runs/careful_beard_mk7l7y9z2p?wsid=%2Fsubscriptions%2F51531604-2337-4c05-bc05-3c3d4ff154e5%2Fresourcegroups%2Frg-aml-mlops-lab-20260916%2Fworkspaces%2Fmlw-mlops-managed-20260916&tid=46e9cdaa-fed3-4131-aa28-c1fc8a8a043a",
+      "status": "Failed",
+      "data_version": "1",
+      "alpha": 1000000.0,
+      "evaluation": {
+        "rmse": 23.39953696711857,
+        "mae": 18.581160877951948,
+        "r2": -0.014158501087422115,
+        "max_rmse": 3.0,
+        "approved": false,
+        "validation_rows": 200,
+        "validation_sha256": "741995abd68f1d84acbd676b0a65ed55baf94bf2a8d5b76a644e8883a979db52",
+        "source_sha256": "050b53529e391240f058131223e97083da48ca0de346ee028c6bb792822837b2",
+        "model_sha256": "82cd3994ace3512922081f4c1b31ab27318982f12fc9f3c26267e20ad7225cbd"
+      }
+    },
+    "retrain": {
+      "job_name": "tidy_lion_5qghlpm9j9",
+      "studio_url": "https://ml.azure.com/runs/tidy_lion_5qghlpm9j9?wsid=%2Fsubscriptions%2F51531604-2337-4c05-bc05-3c3d4ff154e5%2Fresourcegroups%2Frg-aml-mlops-lab-20260916%2Fworkspaces%2Fmlw-mlops-managed-20260916&tid=46e9cdaa-fed3-4131-aa28-c1fc8a8a043a",
+      "status": "Completed",
+      "data_version": "2",
+      "alpha": 0.1,
+      "evaluation": {
+        "rmse": 1.823776299941045,
+        "mae": 1.488488663052158,
+        "r2": 0.9938392378294394,
+        "max_rmse": 3.0,
+        "approved": true,
+        "validation_rows": 200,
+        "validation_sha256": "741995abd68f1d84acbd676b0a65ed55baf94bf2a8d5b76a644e8883a979db52",
+        "source_sha256": "4e9b0efb12eef1cf03cc0fa6338766ce9e40e672e8e92d1e11c9f26a78e6efba",
+        "model_sha256": "29b1512f96936dbe921ee384db1493d0817dc87d2ba2b1ac62cbeef9d78e1858"
+      }
+    }
+  },
+  "models": {
+    "baseline": {
+      "id": "/subscriptions/51531604-2337-4c05-bc05-3c3d4ff154e5/resourceGroups/rg-aml-mlops-lab-20260916/providers/Microsoft.MachineLearningServices/workspaces/mlw-mlops-managed-20260916/models/mlops-ridge/versions/1",
+      "version": "1",
+      "source_job": "gray_skin_l29cw3mkv0"
+    },
+    "retrain": {
+      "id": "/subscriptions/51531604-2337-4c05-bc05-3c3d4ff154e5/resourceGroups/rg-aml-mlops-lab-20260916/providers/Microsoft.MachineLearningServices/workspaces/mlw-mlops-managed-20260916/models/mlops-ridge/versions/2",
+      "version": "2",
+      "source_job": "tidy_lion_5qghlpm9j9"
+    }
+  },
+  "inference_calls": 5,
+  "direct_deployments": [
+    "blue",
+    "green"
+  ],
+  "rejected_registration_verified": true,
+  "verified_routed_model_sequence": [
+    "blue",
+    "green",
+    "blue"
+  ],
+  "final_resource_state": {
+    "observed_at": "2026-09-16T11:10:14.470356+00:00",
+    "managed_network_mode": "AllowInternetOutbound",
+    "managed_network_status": {
+      "sparkReady": false,
+      "status": "Active"
+    },
+    "workspace_provisioning_state": "Succeeded",
+    "cluster_current_nodes": 0,
+    "cluster_target_nodes": 0,
+    "cluster_min_instances": 0,
+    "cluster_public_ip_enabled": false,
+    "compute_instance_state": "Stopped",
+    "endpoint_exists": false,
+    "runner_exists": false,
+    "runner_disk_or_nic_exists": false,
+    "archived_workspace_compute_count": 0,
+    "archived_workspace_endpoint_count": 0,
+    "storage": {
+      "anonymous_blob": false,
+      "public_network": "Disabled",
+      "shared_key": false
+    },
+    "premium_acr_retained": true,
+    "premium_acr_public_retail_usd_per_day": 1.6666,
+    "published_notebook_folder": "Users/junwoojeong/azure-ml-labs",
+    "published_verified_file_count": 33
+  },
+  "managed_network_validation": {
+    "job_name": "gray_skin_l29cw3mkv0",
+    "studio_url": "https://ml.azure.com/runs/gray_skin_l29cw3mkv0?wsid=%2Fsubscriptions%2F51531604-2337-4c05-bc05-3c3d4ff154e5%2Fresourcegroups%2Frg-aml-mlops-lab-20260916%2Fworkspaces%2Fmlw-mlops-managed-20260916&tid=46e9cdaa-fed3-4131-aa28-c1fc8a8a043a",
+    "status": "Completed",
+    "force_rerun": true,
+    "evaluation": {
+      "rmse": 1.8360781765787466,
+      "mae": 1.4924058233057866,
+      "r2": 0.993755845425547,
+      "max_rmse": 3.0,
+      "approved": true,
+      "validation_rows": 200,
+      "validation_sha256": "741995abd68f1d84acbd676b0a65ed55baf94bf2a8d5b76a644e8883a979db52",
+      "source_sha256": "050b53529e391240f058131223e97083da48ca0de346ee028c6bb792822837b2",
+      "model_sha256": "7ccd27b3681213431c3d8c3a67c2296743505be44e8c6e0c97c9de04413927fb"
+    }
+  }
+}
