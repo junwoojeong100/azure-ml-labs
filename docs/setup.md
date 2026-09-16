@@ -1,6 +1,6 @@
 # 환경 준비: 강사용 / 새 Workspace용
 
-**학습자는 이미 준비된 Workspace를 사용하고, 아래의 “Compute Instance에서 실행 준비”부터 진행합니다.** 새 Azure 환경을 만드는 강사만 1–4단계를 수행합니다.
+**학습자는 [학습자 시작 안내](learner-start.md)로 이동합니다.** 이 문서의 Azure 생성·권한·네트워크 작업은 새 실습 환경을 준비하는 강사용입니다.
 
 최종 구성은 **Workspace managed network + keyless Storage**입니다. 학습 Compute와 Managed Online Endpoint가 각각 Storage에 접근할 수 있도록 Azure ML이 필요한 outbound Private Endpoint를 관리합니다. 사용자가 만든 VNet에 학습 클러스터만 넣는 것으로는 Online Endpoint의 Storage 접근까지 해결되지 않습니다.
 
@@ -139,23 +139,7 @@ Studio의 **Manage → Quota**에서 AML 코어 쿼터를 확인합니다. 일�
 
 ## Compute Instance에서 실행 준비
 
-1. Studio → **Compute → Compute instances**에서 `ci-mlops-private`를 시작합니다.
-2. **Notebooks**의 사용자 폴더에 전체 실습 프로젝트를 배치합니다. Notebook 하나만 업로드하면 모듈·컴포넌트·설정 파일을 찾을 수 없습니다.
-3. 해당 Instance의 Terminal에서 프로젝트 루트로 이동합니다. 계정별 `config.json`도 준비합니다.
-
-```bash
-command -v uv || python -m pip install --user uv
-uv venv --python 3.12 "$HOME/.venvs/aml-mlops-lab"
-source "$HOME/.venvs/aml-mlops-lab/bin/activate"
-uv pip install -r requirements-lock.txt -e ".[dev]"
-python -m ipykernel install --user --name aml-mlops-lab \
-  --display-name "AML MLOps Lab (Python 3.12)"
-
-az login --tenant "<config.json의 tenant_id>" --use-device-code
-python -m pytest --disable-warnings
-```
-
-가상환경은 네트워크 파일 공유가 아닌 CI 로컬 디스크에 두고, 소스/Notebook은 Workspace 파일 공유에 유지합니다. Notebook에서 **AML MLOps Lab (Python 3.12)** kernel을 선택합니다. 브라우저 로그인과 CLI 로그인은 별개입니다.
+인프라 준비가 끝나면 [학습자 시작 안내](learner-start.md)의 준비 A–E를 수행합니다. 파일 배치·설정·kernel·로그인 절차는 그 문서 하나에서 관리합니다. 기존 링크를 위해 이 제목은 유지합니다.
 
 ## 선택: 대화형 로그인 없이 실행하는 강사용 runner
 

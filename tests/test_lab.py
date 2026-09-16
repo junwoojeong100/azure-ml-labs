@@ -306,12 +306,12 @@ def test_sdk_pipeline_graph_and_pinned_environment(settings, tmp_path):
 
 def test_portable_components_success_and_failure_exit_codes(tmp_path):
     generate_data(tmp_path / "data")
-    env = {**os.environ, "MLFLOW_TRACKING_URI": (tmp_path / "mlruns").as_uri()}
+    env = {**os.environ, "MLFLOW_TRACKING_URI": f"sqlite:///{tmp_path / 'mlflow.db'}"}
 
     def run(script, *args, check=True):
         return subprocess.run(
             [sys.executable, str(ROOT / "components" / script), *map(str, args)],
-            env=env, check=check, capture_output=True, text=True,
+            cwd=tmp_path, env=env, check=check, capture_output=True, text=True,
         )
 
     run("prepare.py", "--raw-data", tmp_path / "data/regression-v1.csv",
