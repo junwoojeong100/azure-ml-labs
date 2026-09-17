@@ -161,6 +161,24 @@ def test_all_paths_use_the_same_seven_labs_and_completion_cards():
         assert f"| {number} {title} |" in readme
 
 
+def test_failed_trial_is_not_the_model_deployed_in_step_four():
+    readme = (ROOT / "README.md").read_text()
+    assert 'B -.->|"02 통과 모델"| D' in readme
+    assert 'C -->|"등록 차단 확인 후"| D' in readme
+    assert "C -->|통과 모델|" not in readme
+    documents = dict(guide_documents())
+    for path in (ROOT / "docs/lab-guide.md", NOTEBOOK):
+        section = documents[path].split("## 03 · 품질 게이트", 1)[1].split("\n## ", 1)[0]
+        assert "별도 Job" in section and "02의 통과 모델은 그대로" in section
+    source = next(cell.source for cell in notebook_cells() if cell.id == "register-blue-model")
+    registration = next(
+        node for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        and node.func.id == "register_model"
+    )
+    assert ast.unparse(registration.args[2]) == "baseline_run"
+
+
 def test_infrastructure_page_matches_compute_and_deployment_defaults():
     text = (ROOT / "docs/infrastructure.md").read_text()
     config = json.loads((ROOT / "config.example.json").read_text())
@@ -242,6 +260,30 @@ def test_shared_cluster_cleanup_is_distinguished_from_dedicated_zero_nodes():
     assert "다른 사람의 Job을 취소하거나" in section
 
 
+@pytest.mark.parametrize("relative_path", [
+    "README.md", "docs/learner-start.md", "docs/lab-guide.md", "notebooks/01-studio-mlops.ipynb",
+])
+def test_learner_entries_link_to_cleanup_without_a_working_terminal(relative_path):
+    documents = dict(guide_documents())
+    assert "troubleshooting.md#terminal-없이-정리하기" in documents[ROOT / relative_path]
+
+
+def test_terminal_free_cleanup_has_ordered_scoped_actions_and_no_commands():
+    text = (ROOT / "docs/troubleshooting.md").read_text()
+    assert "## Terminal 없이 정리하기" in text
+    section = text.split("## Terminal 없이 정리하기", 1)[1].split("\n## ", 1)[0]
+    assert not bash_blocks(section)
+    actions = [
+        "Jobs →", "Endpoints →", "Compute → Compute instances", "Compute → Compute clusters",
+    ]
+    positions = [section.index(action) for action in actions]
+    assert positions == sorted(positions)
+    for condition in ("본인", "Cancel", "Canceled", "Delete", "Stop", "Stopped", "0노드", "공유"):
+        assert condition in section
+    assert "이미 없는 endpoint" in section
+    assert "권한" in section and "강사" in section and "잔존 비용" in section
+
+
 def test_learner_preparation_is_separate_and_has_a_ready_checkpoint():
     text = (ROOT / "docs/learner-start.md").read_text()
     for section in ("준비 A", "준비 B", "준비 C", "준비 D", "준비 E"):
@@ -275,6 +317,43 @@ def test_entry_points_distinguish_one_notebook_from_resuming_an_existing_run():
         assert re.search(r"\]\([^)]*#(?:기존-실행을-이어가기|중단-후-이어하기)\)", text)
     cli = documents[ROOT / "docs/lab-guide.md"]
     assert "기존 프로젝트 루트" in cli and "01부터 다시 실행하는 절차가 아닙니다" in cli
+
+
+def test_data_versions_run_names_and_model_versions_are_mapped_in_both_paths():
+    cli = (ROOT / "docs/lab-guide.md").read_text().split("\n## 01 · ", 1)[0]
+    notebook = next(cell.source for cell in notebook_cells() if cell.id == "prepare-explanation")
+    mappings = (
+        ("02", "1", "baseline", "1", "blue"),
+        ("03", "1", "bad", "9", "등록 차단"),
+        ("05", "2", "retrain", "2", "green"),
+    )
+    for text in (cli, notebook):
+        rows = dict(re.findall(r"^\| (0[235]) [^|]+\|(.+)$", text, flags=re.MULTILINE))
+        assert set(rows) == {"02", "03", "05"}
+        for step, data_version, label, suffix, outcome in mappings:
+            columns = [column.strip() for column in rows[step].strip("|").split("|")]
+            assert columns[0] == data_version
+            assert columns[1] == f"`{label}-<LAB_ID>`"
+            assert f"`<LAB_ID>{suffix}`" in columns[2] and outcome in columns[2]
+
+
+def test_notebook_checkpoints_use_python_boolean_spelling():
+    text = "\n\n".join(cell.source for cell in notebook_cells() if cell.cell_type == "markdown")
+    assert not re.search(r"\b(?:approved|ready)=(?:true|false)\b", text)
+    for condition in ("approved=True", "approved=False", "ready=True", "ready=False"):
+        assert condition in text
+    learner = (ROOT / "docs/learner-start.md").read_text()
+    assert "`True`/`False`" in learner and "`true`/`false`" in learner
+
+
+def test_waiting_guidance_distinguishes_busy_cells_from_a_finished_timeout():
+    cells = {cell.id: cell.source for cell in notebook_cells() if cell.cell_type == "markdown"}
+    learner = (ROOT / "docs/learner-start.md").read_text()
+    for text in (cells["intro"], learner):
+        assert "`[*]`" in text and "다시 실행하지 않습니다" in text
+    for text in (cells["baseline-explanation"], cells["baseline-wait-explanation"]):
+        assert "timeout으로 셀이 끝났을 때만" in text
+    assert "`Queued`/`Running`/timeout이면" not in cells["baseline-explanation"]
 
 
 def test_notebook_and_cli_substeps_match_the_code_they_introduce():
@@ -334,6 +413,30 @@ def test_cli_route_checks_fetch_both_responses_without_saved_terminal_output():
             f"python -m mlops_lab.cli invoke --deployment {deployment} &&",
             "python -m mlops_lab.cli invoke",
         ]
+
+
+@pytest.mark.parametrize("resume", ["", "20260917103000-abc123"])
+def test_cli_preparation_prints_the_actual_run_names_and_model_versions(tmp_path, resume):
+    activate = tmp_path / ".venvs/aml-mlops-lab/bin/activate"
+    activate.parent.mkdir(parents=True)
+    activate.write_text("return 0\n")
+    script = bash_blocks((ROOT / "docs/lab-guide.md").read_text())[0]
+    result = subprocess.run(
+        ["bash", "-c", script], cwd=tmp_path, capture_output=True, text=True,
+        env={**os.environ, "HOME": str(tmp_path), "LAB_ID": resume,
+             "PATH": str(Path(sys.executable).parent) + os.pathsep + os.environ["PATH"]},
+    )
+    assert result.returncode == 0, result.stderr
+    match = re.search(r"^기록할 LAB_ID: (.+)$", result.stdout, flags=re.MULTILINE)
+    assert match, result.stdout
+    identifier = match.group(1)
+    assert re.fullmatch(r"[0-9]{14}-[a-f0-9]{6}", identifier)
+    if resume:
+        assert identifier == resume
+    assert f"프로젝트 루트: {tmp_path}" in result.stdout
+    for prefix in ("baseline", "bad", "retrain"):
+        assert f"{prefix}-{identifier}" in result.stdout
+    assert f"Models blue / green / 거절: {identifier}1 / {identifier}2 / {identifier}9" in result.stdout
 
 
 @pytest.mark.parametrize("state, archive_root", [
@@ -688,8 +791,9 @@ def test_notebook_wrong_folder_fails_before_authentication(tmp_path, monkeypatch
 
 
 @pytest.mark.parametrize("restart_at", [
-    None, "baseline-report", "expected-failed-job", "wait-blue-deployment",
-    "compare-retrain", "wait-and-test-green", "promote-green", "verify-green-route", "verify-blue-rollback",
+    None, "baseline-report", "expected-failed-job", "submit-blue-deployment",
+    "wait-blue-deployment", "blue-inference", "compare-retrain", "submit-green-deployment",
+    "wait-and-test-green", "promote-green", "verify-green-route", "verify-blue-rollback", "cleanup",
 ])
 def test_notebook_sequence_and_kernel_resume_without_azure(tmp_path, monkeypatch, capsys, restart_at):
     import mlops_lab.config as config
@@ -807,6 +911,10 @@ def test_notebook_sequence_and_kernel_resume_without_azure(tmp_path, monkeypatch
     output = capsys.readouterr().out
     for step in ("01", "02", "04", "05", "06"):
         assert f"{step} 완료:" in output
+    for label in jobs:
+        assert label in output
+    identifier = namespace["lab_id"]
+    assert f"Models blue / green / 거절: {identifier}1 / {identifier}2 / {identifier}9" in output
 
 
 @pytest.mark.parametrize("cell_id", ["blue-inference", "verify-green-route", "verify-blue-rollback"])

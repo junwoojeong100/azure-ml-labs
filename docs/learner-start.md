@@ -71,7 +71,7 @@ ls pyproject.toml config.example.json notebooks/01-studio-mlops.ipynb
 cp -n config.example.json config.json
 ```
 
-Studio 파일 목록에서 **새 프로젝트 폴더 → `config.json`**을 열고 아래 **8개 값**을 확인·수정한 뒤 저장합니다. 다른 사람의 설정을 복사해 그대로 실행하지 않습니다.
+Studio 파일 목록에서 **새 프로젝트 폴더 → `config.json`**을 열고 아래 **8개 값**을 확인·수정한 뒤 저장합니다. **키 이름은 유지하고 큰따옴표 안의 값만 바꿉니다.** 다른 사람의 설정을 복사해 그대로 실행하지 않습니다.
 
 | 확인·수정할 값 | 넣을 내용 |
 |---|---|
@@ -136,17 +136,21 @@ PY
 
 ## Notebook 시작
 
-Studio 파일 목록에서 **준비 B의 새 프로젝트 폴더 → `notebooks/01-studio-mlops.ipynb`**를 엽니다. 상단 Compute와 **AML MLOps Lab (Python 3.12)** kernel을 선택합니다.
+Studio 파일 목록에서 **준비 B의 새 프로젝트 폴더 → `notebooks/01-studio-mlops.ipynb`**를 엽니다. 상단 Compute는 **본인 Instance**, kernel은 **AML MLOps Lab (Python 3.12)**를 선택합니다.
 
 **[Notebook 00부터 시작 →](../notebooks/01-studio-mlops.ipynb)**
 
 각 단계의 **할 일 → Studio에서 확인 → 완료 조건**을 따라 `Shift+Enter`로 셀을 하나씩 실행합니다. **설명 셀은 읽고, 바로 아래 코드 셀을 실행**합니다. 이전 코드 셀이 끝난 뒤 다음 셀을 실행하며 `Run all`은 사용하지 않습니다. **제출 셀의 URL은 접수 확인일 뿐, Job 완료 표시가 아닙니다.** 이어지는 대기 셀까지 수행합니다.
 
+셀에 `[*]` 또는 실행 중 표시가 있으면 기다리고 **다시 실행하지 않습니다.** timeout으로 셀이 끝난 경우에만 해당 대기 셀을 다시 실행합니다. 01–07의 코드와 데이터 파일은 수정하지 않습니다.
+
 출력된 `LAB_ID`를 기록하고, Job URL은 **새 탭**으로 엽니다. 실행 중 같은 Notebook 탭에서 다른 Workspace 메뉴로 이동하거나 kernel/Compute를 바꾸지 않습니다.
 
-`LAB_ID`는 **이번 실습 전체의 식별자**입니다. Job은 `baseline-<LAB_ID>`·`bad-<LAB_ID>`·`retrain-<LAB_ID>` 세 개이며, 공유 Workspace에서는 이 실행명으로 본인 Job을 찾습니다. Azure가 따로 부여한 `job_name`과 혼동하지 않습니다.
+`LAB_ID`는 **이번 실습 전체의 식별자**입니다. Job은 `baseline-<LAB_ID>`·`bad-<LAB_ID>`·`retrain-<LAB_ID>` 세 개이며, **00에서 출력한 실제 실행명과 모델 버전**으로 본인 자산을 찾습니다. Azure가 따로 부여한 `job_name`과 혼동하지 않습니다.
 
 ## 기다릴지 고칠지 판단하기
+
+Notebook의 Python 출력은 `True`/`False`, CLI의 JSON 출력은 `true`/`false`입니다. 대소문자만 다를 뿐 같은 뜻이며, 아래 표는 JSON 표기를 사용합니다.
 
 | 보이는 상태 | 할 일 | 다음 실습으로 이동 |
 |---|---|---|
@@ -181,6 +185,8 @@ Instance가 `Stopped`라면 [준비 A](#준비-a--instance-시작과-terminal-�
 ## 중간에 그만둘 때
 
 실행 중인 **본인 Job만** **Studio → Jobs → 해당 실행 → Cancel** 후 `Canceled`를 확인합니다. **Instance만 멈추면 Cluster의 Job이나 endpoint까지 멈추는 것은 아닙니다.**
+
+Terminal 연결·설치·로그인이 안 된다면 아래 명령 대신 **[Terminal 없이 정리하기](troubleshooting.md#terminal-없이-정리하기)**를 따릅니다. 준비 C–E를 마치지 못했어도 종료할 수 있습니다.
 
 Notebook을 사용 중이면 저장하고 `LAB_ID`·프로젝트 루트를 기록한 뒤, 프로젝트 루트의 Instance Terminal에서:
 

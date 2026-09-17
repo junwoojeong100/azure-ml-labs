@@ -15,6 +15,8 @@
 | 3 | 학습자와 Compute의 역할 할당 | 학습자 Workspace 역할과 두 Storage 역할 할당 성공 |
 | 4 | 네트워크·Compute 생성 | Instance가 해당 학습자에게 할당되고 학습 Cluster 준비 완료 |
 
+**직접 바꿀 곳은 1단계의 `config.json`과 3단계의 `USER_OBJECT_ID`입니다.** 나머지 명령은 이 값에서 대상 이름을 읽습니다. 설정을 저장한 뒤 변수 읽기 블록을 실행하고, 중간에 계정이나 대상 설정을 바꾸지 않습니다.
+
 ## 1. 관리 PC와 계정 설정
 
 **실행 위치:** 관리 PC의 **Bash**, 현재 가이드와 같은 브랜치의 전체 프로젝트 루트입니다. 학습자 Instance Terminal이 아닙니다. 필요한 도구는 Azure CLI, `ml` v2 extension, Python 3.12입니다.
@@ -205,9 +207,18 @@ az ml workspace show --name "$WS" -g "$RG" --subscription "$SUB" \
 
 **강사의 필수 생성 절차는 여기서 끝납니다.** 학습자가 자신의 계정으로 [학습자 시작 안내](learner-start.md)의 준비 A–E를 수행합니다. 파일 배치·설정·kernel·로그인 절차는 그 문서 하나에서 관리합니다.
 
-**학습자에게 전달할 것:** 가이드와 같은 브랜치의 전체 프로젝트 ZIP, 구독·tenant·RG·Workspace 정보, 본인 Instance·학습 Cluster·본인 endpoint 이름입니다. Studio의 본인 사용자 폴더도 함께 확인합니다. 여러 학습자가 실습할 때 **Instance와 endpoint는 개인별로 지정**하고, `config.json`의 Compute 이름까지 본인 환경과 맞는지 확인합니다. 학습 Cluster가 전용인지 공유인지도 알려 주며, 공유 Cluster의 최종 0노드 확인은 모든 학습자 종료 후 강사가 수행합니다. Notebook 한 파일이나 강사 계정의 설정만 전달하지 않습니다.
+**아래 인계표를 채워 전달합니다.** Notebook 한 파일이나 강사 계정의 `config.json`만 전달하지 않습니다.
 
-**인계 완료 조건:** 학습자가 본인 Instance의 Terminal을 열고 `준비 완료`를 확인한 뒤 01의 자산 등록까지 성공합니다. 강사의 리소스 생성 성공만으로 학습자의 파일·데이터 접근이 확인된 것은 아닙니다.
+| 전달 항목 | 학습자가 받을 내용 |
+|---|---|
+| 파일·가이드 버전 | 같은 브랜치의 전체 프로젝트 ZIP과 시작 안내 링크. 이미 배치했다면 정확한 프로젝트 루트 |
+| Azure 대상 | 구독 ID·tenant ID·RG·Workspace. 학습자는 자신의 로그인 계정을 `expected_account`에 사용 |
+| 개발 VM·파일 위치 | **본인에게 할당된** Instance 이름과 Studio의 본인 사용자 폴더 |
+| 학습 Cluster | 이름과 **전용/공유 여부**. 공유 Cluster의 최종 0노드 확인 담당은 강사 |
+| 추론 endpoint | **개인별로 고유한** 이름. 아직 없는 것이 정상이며 학습자가 04에서 생성 |
+| 종료 책임 | 본인 Job·endpoint·Instance는 학습자, 공유 자원·잔존 비용·전체 RG 보관 여부는 강사 |
+
+**인계 완료 조건:** 학습자가 자신의 계정으로 본인 Instance의 Terminal을 열고, 준비 A–E → Notebook 00 → 01의 자산 등록까지 성공합니다. 강사의 생성 성공이나 `준비 완료` 출력만으로 데이터 접근까지 확인된 것은 아닙니다. 인계 중 설치·연결에 막혀 종료한다면 [Terminal 없이 정리하기](troubleshooting.md#terminal-없이-정리하기)를 함께 확인합니다.
 
 ## 선택: 대화형 로그인 없이 실행하는 강사용 runner
 

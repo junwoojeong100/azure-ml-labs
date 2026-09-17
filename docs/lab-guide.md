@@ -4,7 +4,7 @@
 
 모든 명령은 **Azure Compute Instance의 Terminal, 프로젝트 루트**에서 실행합니다. `config.json`의 Workspace·Compute·endpoint가 본인에게 지정된 값인지 확인합니다. Studio의 Job/Endpoint 화면은 **새 탭**에서 엽니다.
 
-**블록 하나 실행 → 결과 확인 → 다음 블록** 순서입니다. 02-B·04-C 같은 하위 단계 번호는 Notebook 파일 하나 안의 번호와 같습니다. `&&` 앞 명령이 실패하면 뒤 명령은 실행되지 않습니다. **오류가 나면 다음 블록도 실행하지 않습니다.** 예외는 03-A/03-B에 명시한 두 오류뿐입니다.
+**블록 하나 실행 → 결과 확인 → 다음 블록** 순서입니다. 명령이 끝나고 입력 프롬프트가 돌아올 때까지 다음 블록을 입력하지 않습니다. 02-B·04-C 같은 하위 단계 번호는 Notebook 파일 하나 안의 번호와 같습니다. `&&` 앞 명령이 실패하면 뒤 명령은 실행되지 않습니다. **오류가 나면 다음 블록도 실행하지 않습니다.** 예외는 03-A/03-B에 명시한 두 오류뿐입니다.
 
 실행 위치·VM 사양·다른 옵션은 [학습·추론 인프라 안내](infrastructure.md)의 **선택 읽기**입니다. 이 문서의 실습에서는 기본 구성을 바꾸지 않습니다.
 
@@ -21,16 +21,26 @@ BAD_RUN="bad-${LAB_ID}" &&
 RETRAIN_RUN="retrain-${LAB_ID}" &&
 MODEL_V1="${LAB_ID}1" &&
 MODEL_V2="${LAB_ID}2" &&
-printf '프로젝트 루트: %s\n기록할 LAB_ID: %s\n' "$PWD" "$LAB_ID"
+printf '프로젝트 루트: %s\n기록할 LAB_ID: %s\n' "$PWD" "$LAB_ID" &&
+printf 'Jobs: %s / %s / %s\n' "$BASELINE_RUN" "$BAD_RUN" "$RETRAIN_RUN" &&
+printf 'Models blue / green / 거절: %s / %s / %s\n' "$MODEL_V1" "$MODEL_V2" "${LAB_ID}9"
 ```
 
 실행명과 모델 버전에 시간·고유 suffix를 넣어 기존 결과와 충돌하지 않게 합니다. **아래 단계는 같은 Terminal에서 계속 실행**합니다. `LAB_ID`는 실습 전체의 식별자이고, `BASELINE_RUN`·`BAD_RUN`·`RETRAIN_RUN`은 각각 02·03·05의 실행명입니다.
+
+**Data의 버전 1/2와 Models의 버전은 별개입니다.** 아래는 이름 규칙이며, Studio에서는 위에 출력된 실제 값을 찾습니다. `<LAB_ID>`라는 글자를 입력하거나 이후 명령의 변수를 손으로 바꾸지 않습니다.
+
+| 실험 | Data 버전 | Job 실행명 | Models 버전 / 배포 |
+|---|---|---|---|
+| 02 기본 모델 | 1 | `baseline-<LAB_ID>` | `<LAB_ID>1` → blue |
+| 03 성능 미달 모델 | 1 | `bad-<LAB_ID>` | `<LAB_ID>9` **등록 차단**, 배포하지 않음 |
+| 05 재학습 모델 | 2 | `retrain-<LAB_ID>` | `<LAB_ID>2` → green |
 
 재개할 때는 이 준비 블록으로 변수를 복원한 뒤 [마지막 완료 지점](troubleshooting.md#기존-실행을-이어가기)으로 이동합니다. **01부터 다시 실행하는 절차가 아닙니다.**
 
 ## 01 · 자산 등록
 
-**할 일:** 데이터 버전 2개와 재사용할 처리 단계 3개를 등록합니다. `assets` 명령이 데이터 생성도 수행하므로 별도 생성 명령은 필요 없습니다.
+**할 일:** 데이터 버전 2개와 재사용할 처리 단계 3개(Component)를 등록합니다. 각 단계의 패키지 구성(Environment)은 고정 버전을 사용합니다. `assets` 명령이 데이터 생성도 수행하므로 별도 생성 명령은 필요 없습니다.
 
 ```bash
 python -m mlops_lab.cli assets
@@ -79,6 +89,8 @@ python -m mlops_lab.cli report --run "$BASELINE_RUN"
 
 **할 일:** 모델 설정 `alpha`를 일부러 크게 해 성능을 낮추고, Workspace의 **Models(모델 목록)**에 등록되지 못하는지 확인합니다.
 
+**별도 Job을 만드는 실험입니다. 02의 통과 모델은 그대로 유지하며 04에서 배포합니다.** 03의 실패 모델로 02의 모델을 교체하거나 04에 배포하지 않습니다.
+
 ```bash
 python -m mlops_lab.cli submit --run "$BAD_RUN" \
   --data-version 1 --alpha 1000000 --max-rmse 3
@@ -123,9 +135,11 @@ python -m mlops_lab.cli register --run "$BAD_RUN" --version "${LAB_ID}9"
 python -m mlops_lab.cli register --run "$BASELINE_RUN" --version "$MODEL_V1"
 ```
 
+**확인:** 출력의 `version`은 준비 단계에서 출력한 blue 모델 버전입니다. `source_job`은 02의 Azure `job_name`이며, `baseline-...` 실행명과는 다릅니다.
+
 ### 04-B · blue 배포 제출
 
-한 번만 실행합니다. `--no-wait`는 배포 완료까지 기다리지 않는 옵션입니다.
+한 번만 실행합니다. `--no-wait`는 배포 완료까지 기다리지 않는 옵션입니다. **첫 endpoint 생성은 이 명령 안에서 기다릴 수 있습니다.** 제출 결과가 돌아오기 전에는 재실행하지 않습니다.
 
 ```bash
 python -m mlops_lab.cli deploy --model-version "$MODEL_V1" --deployment blue --no-wait
@@ -263,6 +277,8 @@ Studio traffic이 **blue 100%**이고 두 `predictions` 배열이 일치해야 �
 **할 일:** endpoint를 삭제하고 Instance를 중지합니다. 중도 종료라면 먼저 [실행 중인 Job 취소](learner-start.md#중간에-그만둘-때)를 수행합니다.
 
 **삭제 전 확인:** `config.json`의 `endpoint_name`·`compute_instance`가 본인 것인지 대조하고, `LAB_ID`·프로젝트 루트를 기록합니다. 이 명령은 실행 중인 Job을 취소하거나 Workspace 전체를 삭제하지 않습니다.
+
+Terminal·Python·로그인을 사용할 수 없으면 **[Terminal 없이 정리하기](troubleshooting.md#terminal-없이-정리하기)**로 이동합니다. 정리 명령이 오류로 끝났을 때도 실제 상태를 확인하고 남은 항목만 처리합니다.
 
 ```bash
 python -m mlops_lab.cli cleanup-runtime --delete-endpoint
