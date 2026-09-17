@@ -1,6 +1,8 @@
 # 학습자 시작 안내
 
-**준비 A–E를 끝낸 뒤 Notebook 00으로 이동합니다.** Azure 리소스를 만드는 명령은 없습니다. 새 환경이 필요한 경우에만 강사가 [환경 준비](setup.md)를 수행합니다.
+**처음 시작한다면 준비 A–E를 끝낸 뒤 Notebook 00으로 이동합니다.** 00–07은 `01-studio-mlops.ipynb` **파일 하나 안의 단계**입니다. Azure 리소스를 만드는 명령은 없습니다. 새 환경이 필요한 경우에만 강사가 [환경 준비](setup.md)를 수행합니다.
+
+**중단한 실습을 이어간다면 [중단 후 이어하기](#중단-후-이어하기)부터 확인합니다.** 준비 B의 새 폴더 만들기는 첫 시작·새 버전 준비용이며, 기존 실행의 재개 절차가 아닙니다.
 
 개발·학습·추론 VM의 역할이나 다른 선택지가 궁금하면 [학습·추론 인프라 안내](infrastructure.md)를 참고합니다. **선택 읽기**이며 준비 절차는 아래 A부터 시작합니다.
 
@@ -13,6 +15,8 @@
 | Storage 접근 | Notebook 파일을 읽고 쓸 수 있는 역할과 private 네트워크 경로 |
 | 최신 프로젝트 | 현재 읽는 가이드와 같은 브랜치의 전체 ZIP 또는 강사가 제공한 해당 버전 ZIP |
 | 비용 승인 | 학습 VM과 04–06의 추론 VM 비용을 사용할 수 있음 |
+
+**tenant**는 로그인할 조직, **RG(Resource Group)**는 Azure 리소스를 묶어 관리하는 단위입니다. Workspace·RG·tenant는 서로 다른 설정 항목이므로 각각 강사가 지정한 값을 넣습니다.
 
 **같은 Workspace의 사용자라도 다른 사람의 Compute Instance를 공동 사용하지 않습니다.** Instance가 보이지 않거나 Terminal에 연결할 수 없으면 강사에게 할당·권한·네트워크 확인을 요청합니다. 방화벽이나 공유 키를 켜서 해결하지 않습니다.
 
@@ -88,7 +92,7 @@ Studio 파일 목록에서 **새 프로젝트 폴더 → `config.json`**을 열�
 
 ## 준비 D — Python 3.12 kernel 준비
 
-**할 일:** Instance Terminal의 **프로젝트 루트**에서 아래 블록을 한 번 실행합니다. `uv`는 Python 환경 준비용 도구이며, 학습은 별도 Azure ML Cluster에서 실행합니다.
+**할 일:** Instance Terminal의 **프로젝트 루트**에서 아래 블록을 한 번 실행합니다. **kernel**은 Notebook의 Python 코드를 실행하는 환경입니다. `uv`로 Python 3.12 환경을 준비하고 kernel 목록에 등록합니다. 실제 학습은 별도 Azure ML Cluster에서 실행합니다.
 
 ```bash
 VENV="$HOME/.venvs/aml-mlops-lab"
@@ -96,6 +100,7 @@ if [ ! -x "$VENV/bin/python" ]; then
   python -m pip install --user 'uv>=0.8,<1' &&
   python -m uv venv --python 3.12 --seed "$VENV"
 fi &&
+"$VENV/bin/python" -c 'import sys; assert sys.version_info[:2] == (3, 12), "기존 가상환경이 Python 3.12가 아닙니다. 설치를 중단하고 강사에게 환경 확인을 요청하세요."' &&
 "$VENV/bin/python" -m ensurepip --upgrade &&
 "$VENV/bin/python" -m pip install -r requirements-lock.txt -e . &&
 "$VENV/bin/python" -m ipykernel install --user --name aml-mlops-lab \
@@ -104,7 +109,7 @@ source "$VENV/bin/activate" &&
 python --version
 ```
 
-**확인 위치:** 마지막 줄에 `Python 3.12.x`가 표시돼야 합니다. `3.10`이나 다른 버전이면 다음으로 진행하지 않습니다.
+**확인 위치:** 마지막 줄에 `Python 3.12.x`가 표시돼야 합니다. 기존 가상환경이 다른 버전이면 패키지 설치 전에 중단합니다. 환경 폴더를 임의로 삭제하지 말고 강사에게 확인합니다.
 
 **완료 조건:** Notebook의 kernel 목록을 새로 고쳤을 때 **AML MLOps Lab (Python 3.12)**가 보입니다. 개발 kernel과 학습용 환경의 Python 버전은 별개입니다.
 
@@ -135,24 +140,28 @@ Studio 파일 목록에서 **준비 B의 새 프로젝트 폴더 → `notebooks/
 
 **[Notebook 00부터 시작 →](../notebooks/01-studio-mlops.ipynb)**
 
-각 단계의 **할 일 → Studio에서 확인 → 완료 조건**을 따라 `Shift+Enter`로 셀을 하나씩 실행합니다. 이전 셀이 끝난 뒤 다음 셀을 실행하며 `Run all`은 사용하지 않습니다. **제출 셀의 URL은 접수 확인일 뿐, Job 완료 표시가 아닙니다.** 이어지는 대기 셀까지 수행합니다.
+각 단계의 **할 일 → Studio에서 확인 → 완료 조건**을 따라 `Shift+Enter`로 셀을 하나씩 실행합니다. **설명 셀은 읽고, 바로 아래 코드 셀을 실행**합니다. 이전 코드 셀이 끝난 뒤 다음 셀을 실행하며 `Run all`은 사용하지 않습니다. **제출 셀의 URL은 접수 확인일 뿐, Job 완료 표시가 아닙니다.** 이어지는 대기 셀까지 수행합니다.
 
 출력된 `LAB_ID`를 기록하고, Job URL은 **새 탭**으로 엽니다. 실행 중 같은 Notebook 탭에서 다른 Workspace 메뉴로 이동하거나 kernel/Compute를 바꾸지 않습니다.
+
+`LAB_ID`는 **이번 실습 전체의 식별자**입니다. Job은 `baseline-<LAB_ID>`·`bad-<LAB_ID>`·`retrain-<LAB_ID>` 세 개이며, 공유 Workspace에서는 이 실행명으로 본인 Job을 찾습니다. Azure가 따로 부여한 `job_name`과 혼동하지 않습니다.
 
 ## 기다릴지 고칠지 판단하기
 
 | 보이는 상태 | 할 일 | 다음 실습으로 이동 |
 |---|---|---|
-| `Queued` / `Running` | Job URL을 새 탭에서 확인하고 같은 실행을 기다림. 다시 submit하지 않음 | 아직 안 됨 |
+| `Queued` / `Running`, 대기 셀에 새 출력 없음 | Job URL을 새 탭에서 확인하고 같은 실행을 기다림. 상태가 같으면 추가 출력이 없을 수 있음. 다시 submit하지 않음 | 아직 안 됨 |
 | `Submitted` / `Creating`, `ready=false` | 배포가 `Succeeded`가 될 때까지 기다림 | 아직 안 됨 |
 | 03의 `Failed` + `evaluate_gate` 실패 + `approved=false` + RMSE > 3 | 의도된 실패. **03-B의 등록 차단 확인**으로 이동 | 아직 04로 가지 않음 |
 | 03의 `Registration blocked` | 위 네 조건과 거절 모델 버전 부재를 **모두** 확인. 등록 차단 메시지만으로 정상 판정하지 않음 | 모두 맞으면 04로 |
 | `Failed`인데 위 조건이 다르거나 보고서 없음 | 실제 오류. [상세 진단](troubleshooting.md)에서 원인 해결 | 안 됨 |
-| `wait` timeout | Job이 취소된 것이 아님. 같은 실행의 대기 셀만 다시 실행 | 아직 안 됨 |
+| `wait` / `wait-deployment` timeout | 기본 대기 제한 40분이 지난 것. Job/배포가 취소된 것이 아님. 같은 대상의 대기 셀만 다시 실행 | 아직 안 됨 |
 
 ## 중단 후 이어하기
 
 **kernel을 바꾸거나 재시작하면 변수는 사라져도 Azure Job은 남을 수 있습니다.**
+
+Instance가 `Stopped`라면 [준비 A](#준비-a--instance-시작과-terminal-열기)처럼 본인 Instance를 시작하고 **기존 프로젝트 폴더**를 엽니다. CLI 인증이 만료됐을 때만 기존 프로젝트 루트의 Terminal에서 `source "$HOME/.venvs/aml-mlops-lab/bin/activate"`로 환경을 활성화한 뒤 [준비 E](#준비-e--cli-로그인과-준비-완료-확인)를 다시 수행합니다.
 
 | 상황 | 다시 시작하는 위치 |
 |---|---|
@@ -164,6 +173,8 @@ Studio 파일 목록에서 **준비 B의 새 프로젝트 폴더 → `notebooks/
 | 완전히 새 실습을 시작함 | 먼저 이전 리소스를 정리하고 `RESUME_LAB_ID`를 빈 문자열로 둠 |
 
 다시 연결한 프로젝트에는 기존 `artifacts/runs/`가 있어야 합니다. **다른 새 폴더로 옮긴 뒤 ID만 입력하면 실행 기록을 찾을 수 없습니다.** 기록을 복원하거나 강사에게 확인하고, 무조건 새 Job을 제출하지 않습니다.
+
+07에서 이미 삭제한 endpoint는 ID 복원만으로 돌아오지 않습니다. 단순 재접속과 비용 정리 후 새 실습을 구분합니다.
 
 목차에서 **02-B, 04-C, 05-B, 06-B**처럼 표시된 대기 단계를 찾습니다. 정확한 재개 위치는 [마지막 완료 지점별 안내](troubleshooting.md#기존-실행을-이어가기)를 따릅니다.
 

@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 import sys
+import unicodedata
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -66,6 +67,12 @@ def preparation_block(letter):
     return blocks[0]
 
 
+def setup_blocks(number):
+    text = (ROOT / "docs/setup.md").read_text()
+    section = text.split(f"## {number}. ", 1)[1].split("\n## ", 1)[0]
+    return bash_blocks(section)
+
+
 def prose(text):
     return re.sub(r"^```[^\n]*\n.*?^```\s*$", "", text, flags=re.MULTILINE | re.DOTALL)
 
@@ -90,6 +97,33 @@ def guide_documents():
         cell.source for cell in notebook_cells() if cell.cell_type == "markdown"
     )))
     return documents
+
+
+def unsupported_guide_letters(text):
+    return {
+        character for character in text
+        if character.isalpha() and not character.isascii()
+        and not unicodedata.name(character, "").startswith("HANGUL ")
+    }
+
+
+def test_guides_use_only_korean_and_english_letters():
+    documents = [(path, text) for path, text in guide_documents() if path != NOTEBOOK]
+    documents.append((NOTEBOOK, "\n".join(cell.source for cell in notebook_cells())))
+    errors = []
+    for path, text in documents:
+        for number, line in enumerate(text.splitlines(), 1):
+            unsupported = unsupported_guide_letters(line)
+            if unsupported:
+                codepoints = ", ".join(f"U+{ord(character):04X}" for character in sorted(unsupported))
+                errors.append(f"{path.relative_to(ROOT)}:{number}: {codepoints}")
+    assert not errors, "\n".join(errors)
+
+
+def test_guide_language_guard_rejects_other_scripts_but_allows_notation():
+    assert not unsupported_guide_letters("한글 English 00–07 · RMSE ≤ 3, R², `--no-wait`")
+    for character in ("\u6f22", "\u3042", "\u30a2", "\uff71", "\U00020000", "\u0391", "\u0410"):
+        assert unsupported_guide_letters(character), f"Expected rejection of U+{ord(character):04X}"
 
 
 def test_local_links_and_section_anchors_resolve():
@@ -233,6 +267,16 @@ def test_learner_preparation_is_separate_and_has_a_ready_checkpoint():
         assert forbidden not in text
 
 
+def test_entry_points_distinguish_one_notebook_from_resuming_an_existing_run():
+    documents = dict(guide_documents())
+    for path in (ROOT / "README.md", ROOT / "docs/learner-start.md", NOTEBOOK):
+        text = documents[path]
+        assert "파일 하나" in text
+        assert re.search(r"\]\([^)]*#(?:기존-실행을-이어가기|중단-후-이어하기)\)", text)
+    cli = documents[ROOT / "docs/lab-guide.md"]
+    assert "기존 프로젝트 루트" in cli and "01부터 다시 실행하는 절차가 아닙니다" in cli
+
+
 def test_notebook_and_cli_substeps_match_the_code_they_introduce():
     cells = notebook_cells()
     pattern = r"^### (0[2-6]-[A-F]) · (.+)$"
@@ -281,6 +325,17 @@ def test_cli_separates_submission_waiting_and_each_traffic_change():
     assert 'report --run "$RETRAIN_RUN"' in comparison
 
 
+def test_cli_route_checks_fetch_both_responses_without_saved_terminal_output():
+    text = (ROOT / "docs/lab-guide.md").read_text()
+    for step, deployment in (("04-E", "blue"), ("06-D", "green"), ("06-F", "blue")):
+        section = text.split(f"### {step} · ", 1)[1].split("\n### ", 1)[0].split("\n## ", 1)[0]
+        script = bash_blocks(section)[0]
+        assert script.strip().splitlines() == [
+            f"python -m mlops_lab.cli invoke --deployment {deployment} &&",
+            "python -m mlops_lab.cli invoke",
+        ]
+
+
 @pytest.mark.parametrize("state, archive_root", [
     ("missing-folder", "azure-ml-labs-main"),
     ("missing-zip", "azure-ml-labs-main"),
@@ -322,13 +377,14 @@ def test_project_unpacking_requires_the_correct_folder_and_zip(tmp_path, state, 
             assert not workdirs, "A failed path/ZIP check must not create an unrelated project folder."
 
 
-@pytest.mark.parametrize("failed_module", ["ensurepip", "pip", "ipykernel"])
+@pytest.mark.parametrize("failed_module", ["version", "ensurepip", "pip", "ipykernel"])
 def test_kernel_preparation_stops_at_the_failed_install(tmp_path, failed_module):
     binary = tmp_path / ".venvs/aml-mlops-lab/bin/python"
     binary.parent.mkdir(parents=True)
     binary.write_text(
         "#!/bin/bash\n"
         'printf "%s\\n" "$*" >> "$HOME/python-calls"\n'
+        f'if [ "$1" = "-c" ] && [ "{failed_module}" = "version" ]; then exit 23; fi\n'
         f'if [ "$2" = "{failed_module}" ]; then exit 23; fi\n'
         "exit 0\n"
     )
@@ -341,7 +397,11 @@ def test_kernel_preparation_stops_at_the_failed_install(tmp_path, failed_module)
     )
     assert result.returncode == 23
     calls = (tmp_path / "python-calls").read_text().splitlines()
-    assert calls[-1].split()[1] == failed_module
+    if failed_module == "version":
+        assert len(calls) == 1 and calls[0].startswith("-c ")
+        assert "sys.version_info[:2] == (3, 12)" in calls[0]
+    else:
+        assert calls[-1].split()[1] == failed_module
     assert "--version" not in calls
 
 
@@ -357,6 +417,217 @@ def test_failed_cli_login_does_not_run_the_ready_checkpoint(tmp_path):
     )
     assert result.returncode == 29
     assert "UNEXPECTED_READY_CHECK" not in result.stdout
+
+
+@pytest.mark.parametrize("exists, failed_command", [
+    ("false", ""),
+    ("true", ""),
+    ("", ""),
+    ("unexpected", ""),
+    ("false", "group exists"),
+    ("false", "provider register --namespace Microsoft.Network"),
+    ("false", "group create"),
+    ("false", "acr create"),
+    ("false", "acr show"),
+    ("false", "ml workspace create"),
+])
+def test_setup_resource_creation_requires_a_new_rg_and_stops_on_failure(
+    tmp_path, exists, failed_command,
+):
+    stubs = r'''
+az() {
+  printf '%s\n' "$*" >> "$TRACE"
+  if [ -n "$FAIL_COMMAND" ] && [[ "$*" == "$FAIL_COMMAND"* ]]; then
+    printf 'Simulated Azure failure\n' >&2
+    return 29
+  fi
+  case "$1 $2" in
+    "group exists") printf '%s\n' "$RG_EXISTS_RESULT" ;;
+    "acr show") printf '/test/registry\n' ;;
+  esac
+}
+python() { printf 'acr-test\n'; }
+'''
+    trace = tmp_path / "calls"
+    result = subprocess.run(
+        ["bash", "-c", stubs + setup_blocks(2)[0]], cwd=tmp_path,
+        capture_output=True, text=True,
+        env={**os.environ, "TRACE": str(trace), "RG_EXISTS_RESULT": exists,
+             "FAIL_COMMAND": failed_command, "SUB": "test-sub", "RG": "test-rg",
+             "WS": "test-workspace", "LOCATION": "test-location"},
+    )
+    calls = trace.read_text().splitlines()
+    if failed_command:
+        assert result.returncode == 29
+        assert calls[-1].startswith(failed_command)
+        assert result.stderr
+    elif exists != "false":
+        assert result.returncode != 0
+        assert len(calls) == 1 and calls[0].startswith("group exists")
+        assert "새 RG만 생성합니다" in result.stderr
+    else:
+        assert result.returncode == 0, result.stderr
+        assert calls[-1].startswith("ml workspace create")
+        providers = {call.split()[3] for call in calls if call.startswith("provider register")}
+        assert providers == {
+            "Microsoft.MachineLearningServices", "Microsoft.Network", "Microsoft.Compute",
+            "Microsoft.ManagedIdentity", "Microsoft.Storage", "Microsoft.KeyVault",
+            "Microsoft.ContainerRegistry", "Microsoft.Insights", "Microsoft.OperationalInsights",
+        }
+    assert all("--subscription test-sub" in call for call in calls)
+
+
+@pytest.mark.parametrize("user_id, failed_role", [
+    ("00000000-0000-0000-0000-000000000001", ""),
+    ("<실습 사용자 Object ID>", ""),
+    ("learner@example.test", ""),
+    ("00000000-0000-0000-0000-000000000001", "AzureML Data Scientist"),
+    ("00000000-0000-0000-0000-000000000001", "Storage Blob Data Contributor"),
+    ("00000000-0000-0000-0000-000000000001", "Storage File Data Privileged Contributor"),
+])
+def test_setup_assigns_learner_roles_and_rejects_invalid_or_failed_assignments(
+    tmp_path, user_id, failed_role,
+):
+    stubs = r'''
+az() {
+  printf '%s\n' "$*" >> "$TRACE"
+  if [ -n "$FAIL_ROLE" ] && [[ "$*" == *"--role $FAIL_ROLE"* ]]; then
+    printf 'Simulated role assignment failure\n' >&2
+    return 31
+  fi
+  if [ "$1 $2" = "identity show" ]; then printf 'test-compute-identity\n'; fi
+}
+'''
+    trace = tmp_path / "calls"
+    script = setup_blocks(3)[0].replace("<실습 사용자 Object ID>", user_id)
+    result = subprocess.run(
+        ["bash", "-c", stubs + script], cwd=tmp_path, capture_output=True, text=True,
+        env={**os.environ, "TRACE": str(trace), "FAIL_ROLE": failed_role,
+             "SUB": "test-sub", "RG": "test-rg", "LOCATION": "test-location",
+             "WS_ID": "workspace-scope", "STORAGE_ID": "storage-scope",
+             "PATH": str(Path(sys.executable).parent) + os.pathsep + os.environ["PATH"]},
+    )
+    if user_id.startswith("<") or "@" in user_id:
+        assert result.returncode != 0
+        assert result.stderr and not trace.exists()
+        return
+    calls = trace.read_text().splitlines()
+    if failed_role:
+        assert result.returncode == 31
+        assert f"--role {failed_role}" in calls[-1]
+        return
+    assert result.returncode == 0, result.stderr
+    assignments = [call for call in calls if call.startswith("role assignment create")]
+    assert len(assignments) == 5
+    assert f"--assignee-object-id {user_id}" in assignments[0]
+    assert "--role AzureML Data Scientist --scope workspace-scope" in assignments[0]
+    for role in ("Storage Blob Data Contributor", "Storage File Data Privileged Contributor"):
+        matches = [call for call in assignments if f"--role {role} --scope storage-scope" in call]
+        assert len(matches) == 2
+        assert any(f"--assignee-object-id {user_id}" in call for call in matches)
+        assert any("--assignee-object-id test-compute-identity" in call for call in matches)
+
+
+@pytest.mark.parametrize("failed_command", [
+    "",
+    "ml workspace provision-network",
+    "python -m scripts.render_compute",
+    "ml compute create --file artifacts/infra/compute-cluster.yml",
+    "ml compute create --file artifacts/infra/compute-instance.yml",
+    "ml workspace update",
+])
+def test_setup_assigns_the_instance_to_the_learner_and_stops_after_failure(tmp_path, failed_command):
+    stubs = r'''
+az() {
+  printf '%s\n' "$*" >> "$TRACE"
+  if [ -n "$FAIL_COMMAND" ] && [[ "$*" == "$FAIL_COMMAND"* ]]; then
+    printf 'Simulated compute setup failure\n' >&2
+    return 37
+  fi
+}
+python() { az python "$@"; }
+'''
+    trace = tmp_path / "calls"
+    result = subprocess.run(
+        ["bash", "-c", stubs + setup_blocks(4)[0]], cwd=tmp_path,
+        capture_output=True, text=True,
+        env={**os.environ, "TRACE": str(trace), "FAIL_COMMAND": failed_command,
+             "SUB": "test-sub", "RG": "test-rg", "WS": "test-workspace",
+             "CLUSTER": "test-cluster", "TENANT": "learner-tenant",
+             "USER_OBJECT_ID": "learner-object", "MI_ID": "compute-identity"},
+    )
+    calls = trace.read_text().splitlines()
+    if failed_command:
+        assert result.returncode == 37
+        assert calls[-1].startswith(failed_command)
+        assert result.stderr
+    else:
+        assert result.returncode == 0, result.stderr
+        assert len(calls) == 5
+        instance = next(call for call in calls if "artifacts/infra/compute-instance.yml" in call)
+        assert "--user-object-id learner-object --user-tenant-id learner-tenant" in instance
+        assert "--image-build-compute test-cluster" in calls[-1]
+
+
+@pytest.mark.parametrize("command", [
+    "az ml online-deployment delete", "az vm delete", "az group delete",
+])
+def test_manual_deletion_blocks_require_targets_and_keep_confirmation(tmp_path, command):
+    blocks = bash_blocks((ROOT / "docs/troubleshooting.md").read_text())
+    script = next(block for block in blocks if command in block)
+    assert "--yes" not in script
+    assert "az vm show" not in script and "az resource list" not in script
+    result = subprocess.run(
+        ["bash", "-c", "az() { printf 'UNEXPECTED_DELETE'; }\n" + script],
+        cwd=tmp_path, capture_output=True, text=True,
+        env={**os.environ, "SUB": "", "RG": "", "WS": "", "ENDPOINT": ""},
+    )
+    assert result.returncode != 0
+    assert result.stderr and "UNEXPECTED_DELETE" not in result.stdout
+
+
+def test_runner_bundle_contains_the_guides_and_their_execution_evidence():
+    from scripts.remote_runner import bundle_files
+
+    required = {path for path, _ in guide_documents()}
+    required.add(ROOT / "docs/execution-evidence.json")
+    assert required <= set(bundle_files())
+
+
+def test_studio_publication_contains_the_guides_and_their_execution_evidence(tmp_path, monkeypatch):
+    import mlops_lab.publish as publication
+
+    uploaded = {}
+
+    def file_client(name):
+        return SimpleNamespace(
+            upload_file=lambda content: uploaded.update({name: content}),
+            download_file=lambda: SimpleNamespace(readall=lambda: uploaded[name]),
+        )
+
+    share = SimpleNamespace(
+        get_directory_client=lambda name: SimpleNamespace(create_directory=lambda: None),
+        get_file_client=file_client,
+    )
+    monkeypatch.setattr(publication, "ARTIFACTS", tmp_path)
+    monkeypatch.setattr(publication, "ManagedIdentityCredential", lambda **kwargs: object())
+    monkeypatch.setattr(publication, "ShareServiceClient", lambda **kwargs: SimpleNamespace(
+        get_share_client=lambda name: share,
+    ))
+    settings = SimpleNamespace(
+        expected_account="learner@example.test",
+        client=lambda **kwargs: SimpleNamespace(datastores=SimpleNamespace(
+            get=lambda name: SimpleNamespace(account_name="test-storage", file_share_name="test-share"),
+        )),
+    )
+    result = publication.publish_notebooks(settings, "test-identity")
+    required = {path for path, _ in guide_documents()}
+    required.add(ROOT / "docs/execution-evidence.json")
+    for path in required:
+        destination = f"Users/learner/azure-ml-labs/{path.relative_to(ROOT).as_posix()}"
+        assert uploaded[destination] == path.read_bytes()
+        assert destination in result["uploaded_files"]
+    assert result["verified_file_count"] == len(uploaded)
 
 
 def test_notebook_splits_submission_from_waiting_and_keeps_failure_guards():

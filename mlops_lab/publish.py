@@ -23,7 +23,7 @@ def publish_notebooks(settings: Settings, client_id: str) -> dict:
         "README.md", "pyproject.toml", "requirements-lock.txt", "config.json", "config.example.json",
         ".gitignore", ".github/workflows/*.yml", "components/*.py", "components/*.txt", "components/.amlignore",
         "mlops_lab/*.py", "scripts/*.py", "infra/*.yml", "infra/*.bicep",
-        "tests/*.py", "notebooks/*.ipynb", "docs/*.md",
+        "tests/*.py", "notebooks/*.ipynb", "docs/*.md", "docs/execution-evidence.json",
     )
     files = sorted({file for pattern in patterns for file in ROOT.glob(pattern)})
     directories = set()

@@ -35,6 +35,8 @@ Endpoint는 요청을 받는 **주소**, deployment인 blue/green은 모델을 �
 
 학습 노드는 Job 수요에 맞춰 늘고 줄지만, **추론은 배포당 1대로 고정**했습니다. 온라인 추론의 자동 확장 정책은 이번 실습에 구성하지 않았습니다.
 
+**Instance와 endpoint는 학습자별로 구분합니다.** Workspace·학습 Cluster·Data·Components·Models는 공유할 수 있습니다. 공유 Workspace의 Jobs에서는 본인 `LAB_ID`가 들어간 실행명, Models에서는 본인의 모델 버전을 확인합니다. Workspace 전체 목록이 본인 자산만을 뜻하지는 않습니다.
+
 | 설정을 확인할 곳 | 확인할 값 |
 |---|---|
 | [Compute Instance YAML](../infra/compute-instance.yml) | `size`, `idle_time_before_shutdown_minutes` |
@@ -50,11 +52,15 @@ Endpoint는 요청을 받는 **주소**, deployment인 blue/green은 모델을 �
 - **blue/green을 함께 유지하는 구간에는 기본적으로 추론 VM 2대**가 필요합니다. green으로 전환했다고 blue VM이 삭제되거나 중지되지 않습니다. 07의 endpoint 삭제가 두 배포를 함께 정리합니다.
 - **Compute Instance 중지는 전체 실습 종료가 아닙니다.** 실행 중 Job과 endpoint는 별도로 처리하고, Premium ACR·Private Endpoint·Storage·디스크의 잔존 비용도 고려합니다.
 
+표의 VM 대수는 기본 실행 구성입니다. **리전별 가용량과 배포 업그레이드용 쿼터 여유는 별도**이므로, 강사는 [환경 준비](setup.md#1-관리-pc와-계정-설정)에서 리소스 생성 전에 확인합니다.
+
 전용 환경에서는 endpoint 없음 / Instance Stopped / Cluster 실제 0노드를 확인합니다. 공유 Cluster를 사용한다면 [공유 학습 클러스터의 개인 종료 기준](troubleshooting.md#공유-학습-클러스터의-정리)을 따르며, 다른 학습자의 Job을 취소하지 않습니다. 전체 환경을 보관하지 않을 때의 삭제 조건은 [전체 RG 정리](troubleshooting.md#전체-환경이-더-이상-필요하지-않은-경우)에 있습니다.
 
 ## 네트워크는 어떻게 구성했나요?
 
 [Workspace 설정](../infra/workspace.yml)은 managed network의 **`allow_internet_outbound`** 모드입니다. Compute Instance와 Cluster는 노드의 공인 IP와 공개 SSH를 사용하지 않고, Storage는 keyless 인증과 private 접근 경로를 사용합니다. 추론 요청 인증은 **Microsoft Entra ID (`aad_token`)**입니다.
+
+**keyless**는 Storage 공유 키 대신 ID와 역할로 인증한다는 뜻이고, **private 접근 경로**는 데이터가 오가는 네트워크 경로입니다. 로그인에 성공했다고 네트워크까지 연결된 것은 아닙니다.
 
 **Managed network라고 해서 인터넷 통신이 모두 차단되거나 추론 URL이 자동으로 private 전용이 되는 것은 아닙니다.** 이 모드는 outbound 인터넷 통신을 허용하며, 추론의 inbound 공개 범위와 인증은 별도로 봐야 합니다. 세부 생성·권한 설정은 학습자 준비가 아니라 [강사용 환경 준비](setup.md)의 범위입니다.
 

@@ -4,13 +4,13 @@
 
 모든 명령은 **Azure Compute Instance의 Terminal, 프로젝트 루트**에서 실행합니다. `config.json`의 Workspace·Compute·endpoint가 본인에게 지정된 값인지 확인합니다. Studio의 Job/Endpoint 화면은 **새 탭**에서 엽니다.
 
-**블록 하나 실행 → 결과 확인 → 다음 블록** 순서입니다. 02-B·04-C 같은 하위 단계 번호는 Notebook과 같습니다. `&&` 앞 명령이 실패하면 뒤 명령은 실행되지 않습니다.
+**블록 하나 실행 → 결과 확인 → 다음 블록** 순서입니다. 02-B·04-C 같은 하위 단계 번호는 Notebook 파일 하나 안의 번호와 같습니다. `&&` 앞 명령이 실패하면 뒤 명령은 실행되지 않습니다. **오류가 나면 다음 블록도 실행하지 않습니다.** 예외는 03-A/03-B에 명시한 두 오류뿐입니다.
 
 실행 위치·VM 사양·다른 옵션은 [학습·추론 인프라 안내](infrastructure.md)의 **선택 읽기**입니다. 이 문서의 실습에서는 기본 구성을 바꾸지 않습니다.
 
 ## 준비 — 실행명 한 번 정하기
 
-처음에는 아래 블록을 그대로 실행합니다. 다시 연결했다면 먼저 기록한 값으로 `LAB_ID="기존 값"`을 설정한 뒤 실행합니다.
+처음에는 아래 블록을 그대로 실행합니다. 다시 연결했다면 **기존 프로젝트 루트**에서 먼저 기록한 값으로 `LAB_ID="기존 값"`을 설정한 뒤 실행합니다. 이때 새 ID를 만들거나 기존 `artifacts/runs/`를 삭제하지 않습니다.
 
 ```bash
 source "$HOME/.venvs/aml-mlops-lab/bin/activate" &&
@@ -21,10 +21,12 @@ BAD_RUN="bad-${LAB_ID}" &&
 RETRAIN_RUN="retrain-${LAB_ID}" &&
 MODEL_V1="${LAB_ID}1" &&
 MODEL_V2="${LAB_ID}2" &&
-printf '기록할 LAB_ID: %s\n' "$LAB_ID"
+printf '프로젝트 루트: %s\n기록할 LAB_ID: %s\n' "$PWD" "$LAB_ID"
 ```
 
-실행명과 모델 버전에 시간·고유 suffix를 넣어 기존 결과와 충돌하지 않게 합니다. **아래 단계는 같은 Terminal에서 계속 실행**합니다. `artifacts/runs/`를 지우지 않습니다.
+실행명과 모델 버전에 시간·고유 suffix를 넣어 기존 결과와 충돌하지 않게 합니다. **아래 단계는 같은 Terminal에서 계속 실행**합니다. `LAB_ID`는 실습 전체의 식별자이고, `BASELINE_RUN`·`BAD_RUN`·`RETRAIN_RUN`은 각각 02·03·05의 실행명입니다.
+
+재개할 때는 이 준비 블록으로 변수를 복원한 뒤 [마지막 완료 지점](troubleshooting.md#기존-실행을-이어가기)으로 이동합니다. **01부터 다시 실행하는 절차가 아닙니다.**
 
 ## 01 · 자산 등록
 
@@ -34,7 +36,7 @@ printf '기록할 LAB_ID: %s\n' "$LAB_ID"
 python -m mlops_lab.cli assets
 ```
 
-**Studio에서 확인:** **Data → `mlops-synthetic-regression` → v1/v2**, **Components → `mlops_prepare` / `mlops_train` / `mlops_evaluate`**.
+**Studio에서 확인:** **Data → `mlops-synthetic-regression` → v1/v2**, **Components → `mlops_prepare` / `mlops_train` / `mlops_evaluate`**, **Environments → Curated → `sklearn-1.5:53`**.
 
 **완료 조건:** 데이터는 `uri_file`, 컴포넌트는 v3, 환경은 `sklearn-1.5:53`입니다. `data/manifest.json`에서 두 데이터의 전체 hash(내용을 대조하는 값)는 다르고 검증 데이터 hash는 같습니다.
 
@@ -145,7 +147,7 @@ python -m mlops_lab.cli traffic --deployment blue
 
 ### 04-E · blue 응답 확인
 
-두 응답의 **`predictions` 배열**을 비교합니다. 06의 롤백 확인에도 쓰므로 blue의 숫자 5개를 기록합니다.
+두 응답의 **`predictions` 배열에 있는 숫자 5개**를 비교합니다. 호출 시각·소요 시간은 달라도 정상입니다. 이후 비교에도 같은 `data/sample-request.json`을 사용하므로 실습 중 요청 파일을 수정하지 않습니다.
 
 ```bash
 python -m mlops_lab.cli invoke --deployment blue &&
@@ -156,7 +158,7 @@ python -m mlops_lab.cli invoke
 
 **Studio에서 확인:** **Models → `mlops-ridge` → 해당 버전**의 `source_job` / `quality_gate=passed`; **Endpoints → 해당 endpoint → blue**의 상태와 traffic.
 
-**완료 조건:** blue `Succeeded`, 기본 경로 blue 100%, 두 호출 모두 **5행 요청 → 유한한 숫자 5개**입니다. 요청 파일은 `data/sample-request.json`이며 MLflow의 `input_data` / `columns` / `data` 형식입니다.
+**완료 조건:** blue `Succeeded`, 기본 경로 blue 100%, 두 호출 모두 **5행 요청 → 유한한 숫자 5개**, 두 `predictions` 배열 일치입니다. 각 호출은 `artifacts/inference/`에 자동 기록됩니다. 요청 파일은 MLflow의 `input_data` / `columns` / `data` 형식입니다.
 
 모델의 signature(입출력 형식)로 no-code deployment를 사용하므로 별도 `score.py`는 필요 없습니다. 인증은 endpoint key가 아니라 **Microsoft Entra ID (`aad_token`)**입니다.
 
@@ -216,7 +218,7 @@ python -m mlops_lab.cli wait-deployment --deployment green &&
 python -m mlops_lab.cli invoke --deployment green
 ```
 
-`Succeeded`, `ready=true`, 숫자 5개를 확인하고 green의 `predictions`를 기록합니다. **아직 기본 경로는 blue**입니다.
+`Succeeded`, `ready=true`, 숫자 5개를 확인합니다. **아직 기본 경로는 blue**입니다.
 
 ### 06-C · green으로 전환
 
@@ -226,11 +228,14 @@ python -m mlops_lab.cli traffic --deployment green
 
 ### 06-D · green 기본 응답 확인
 
+green 직접 호출과 기본 호출을 나란히 출력합니다. 이전 Terminal 출력을 찾거나 숫자를 손으로 옮길 필요가 없습니다.
+
 ```bash
+python -m mlops_lab.cli invoke --deployment green &&
 python -m mlops_lab.cli invoke
 ```
 
-Studio traffic이 **green 100%**이고 `predictions`가 **06-B의 green 직접 응답과 일치**해야 합니다. 이 확인을 마친 뒤에만 롤백합니다.
+Studio traffic이 **green 100%**이고 두 `predictions` 배열이 일치해야 합니다. 이 확인을 마친 뒤에만 롤백합니다.
 
 ### 06-E · blue로 롤백
 
@@ -241,10 +246,11 @@ python -m mlops_lab.cli traffic --deployment blue
 ### 06-F · blue 기본 응답 확인
 
 ```bash
+python -m mlops_lab.cli invoke --deployment blue &&
 python -m mlops_lab.cli invoke
 ```
 
-Studio traffic이 **blue 100%**이고 `predictions`가 **04-E에 기록한 blue 응답과 일치**해야 합니다.
+Studio traffic이 **blue 100%**이고 두 `predictions` 배열이 일치해야 합니다. 04에서 배포한 blue 모델을 그대로 사용하며 재학습·재배포하지 않습니다.
 
 **Studio에서 확인:** **Endpoints → 해당 endpoint → traffic**이 green 100% → blue 100%로 바뀝니다.
 
@@ -255,6 +261,8 @@ Studio traffic이 **blue 100%**이고 `predictions`가 **04-E에 기록한 blue 
 ## 07 · 비용 정리
 
 **할 일:** endpoint를 삭제하고 Instance를 중지합니다. 중도 종료라면 먼저 [실행 중인 Job 취소](learner-start.md#중간에-그만둘-때)를 수행합니다.
+
+**삭제 전 확인:** `config.json`의 `endpoint_name`·`compute_instance`가 본인 것인지 대조하고, `LAB_ID`·프로젝트 루트를 기록합니다. 이 명령은 실행 중인 Job을 취소하거나 Workspace 전체를 삭제하지 않습니다.
 
 ```bash
 python -m mlops_lab.cli cleanup-runtime --delete-endpoint

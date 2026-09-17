@@ -10,7 +10,9 @@ Python·ML 기초를 아는 학습자를 위한 **Studio + Compute 실습**입�
 
 준비된 Workspace에서 **파일 준비 → kernel·로그인 확인 → Notebook 시작**까지 순서대로 따라갑니다. 학습자가 새 RG나 네트워크를 만들 필요는 없습니다.
 
-진행 경로는 하나입니다: **시작 안내의 준비 A–E → Notebook 00 → 01–07**. Notebook과 CLI를 둘 다 실행하지 않습니다.
+진행 경로는 하나입니다: **시작 안내의 준비 A–E → `01-studio-mlops.ipynb` 안의 00–07**. Notebook 파일 8개가 아니라 **파일 하나의 단계 번호**입니다. Notebook과 CLI를 둘 다 실행하지 않습니다.
+
+이미 시작한 실습을 이어간다면 새 ZIP을 풀거나 처음부터 실행하지 말고 **[기존 실행 이어가기](docs/troubleshooting.md#기존-실행을-이어가기)**로 이동합니다. 오류가 났거나 중간에 끝내려면 **[문제 해결·비용 정리](docs/troubleshooting.md)**를 엽니다.
 
 ```mermaid
 flowchart LR
