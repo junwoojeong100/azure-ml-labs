@@ -10,6 +10,7 @@
 | 브라우저·Terminal·kernel을 다시 연결함 | [기존 실행 이어가기](#기존-실행을-이어가기) |
 | 실행이 실패했거나 오래 기다리고 있음 | [증상별 확인](#증상별-확인-순서) |
 | 중간에 그만두거나 실습이 끝남 | [본인 리소스 정리](#리소스-정리) |
+| Terminal·Python·CLI를 못 쓰는 상태에서 종료 | [Studio만으로 정리](#terminal-없이-정리하기) |
 | 강사가 전체 환경을 폐기함 | [전용 RG 삭제](#전체-환경이-더-이상-필요하지-않은-경우) |
 
 ## 준비 단계에서 막혔다면
@@ -32,17 +33,23 @@
 
 Notebook에서 kernel/Compute를 바꿨다면 00의 `RESUME_LAB_ID`에 기록한 `LAB_ID`를 넣고 **00만 재실행**합니다. 이전 프로젝트의 `artifacts/runs/`가 있어야 하며, 이후 위치는 다음과 같습니다.
 
+`LAB_ID`를 기록하지 못했다면 Studio 파일 목록에서 기존 프로젝트의 **`artifacts/runs/baseline-<LAB_ID>.json`**을 엽니다. 파일명의 `baseline-`과 `.json` 사이가 ID입니다. 여러 실행이 있다면 파일의 `workspace_id`·`studio_url`을 본인 Job과 대조해 선택하며, 가장 최근 파일을 무조건 선택하지 않습니다. 기록 파일이 없으면 새 ID를 만들기 전에 강사에게 기록 복원을 요청합니다.
+
 | 마지막으로 완료한 일 | 이어갈 셀 |
 |---|---|
 | 02 Job 제출 | **02-B · 대기·결과 확인** |
 | 03 Job 제출 | 03-A 대기 → 실패 원인 확인 → 03-B 등록 차단 |
+| 04 blue 모델 등록, 배포는 아직 제출하지 않음 | **04-B · blue 배포 제출** |
 | 04 blue 배포 제출 | **04-C · blue 배포 대기** |
+| 04 blue traffic 설정 | **04-E · blue 응답 확인** |
 | 05 재학습 제출 | **05-B · 대기·비교** |
+| 05 새 모델 등록, green은 아직 제출하지 않음 | **06-A · green 배포 제출** |
 | 06 green 배포 제출 | **06-B · green 대기·직접 호출** |
 | green traffic 전환 요청 | **06-D · green 기본 응답 확인** |
 | blue 롤백 요청 | **06-F · blue 기본 응답 확인** |
+| 06-F의 롤백 응답까지 확인 | **07 · 비용 정리** |
 
-Notebook 목차에서 위 번호를 선택합니다. **제출·traffic 요청부터 반복하지 않습니다.** 브라우저만 다시 연결했고 같은 kernel의 변수가 남아 있다면 00을 반복할 필요 없이 해당 대기/확인 셀부터 이어갑니다.
+Notebook 목차에서 위 번호를 선택합니다. **이미 수행한 제출·traffic 요청부터 반복하지 않습니다.** 제출 여부가 불명확하면 Job/Endpoint 상태부터 조회합니다. 브라우저만 다시 연결했고 같은 kernel의 변수가 남아 있다면 00을 반복할 필요 없이 해당 대기/확인 셀부터 이어갑니다.
 
 Terminal을 다시 열었다면 기존 프로젝트 루트로 `cd`합니다. **`LAB_ID="기록한 기존 값"`을 먼저 설정한 뒤** [CLI 준비 블록](lab-guide.md#준비--실행명-한-번-정하기)을 실행해 환경과 모든 실행명·모델 버전 변수를 복원합니다.
 
@@ -203,6 +210,8 @@ python -m scripts.remote_runner collect
 
 위 두 실행 경로 중 하나를 선택합니다. Compute Instance 자신을 중지하면 터미널/Notebook 연결이 끊길 수 있습니다. Studio에서 최종 상태를 확인합니다.
 
+명령이 실패했거나 연결이 끊겨 결과를 못 받았다면 **[Terminal 없이 정리하기](#terminal-없이-정리하기)**에서 남은 항목만 처리합니다. `artifacts/cleanup.json` 유무나 출력의 `cluster_min_instances=0`만으로 종료를 판단하지 않습니다. 후자는 최소 노드 **설정값**이며 실제 노드 수가 아닙니다.
+
 **이 아래 VM/RG 삭제 명령은 강사용입니다.** 먼저 [상태 확인 블록](#상태를-확인하는-명령)으로 `SUB`·`RG`를 읽습니다. runner를 만들지 않았다면 VM 삭제는 건너뜁니다.
 
 runner VM은 학습 데이터나 모델의 원본 저장소가 아닙니다. 기록을 회수한 뒤 **아래 조회만 먼저 실행**합니다.
@@ -242,6 +251,23 @@ az group delete --name "$RG" --subscription "$SUB"
 Private Endpoint, Storage, 디스크, 로그, Container Registry에는 지속 비용이 발생할 수 있습니다. “VM을 Stopped로 바꿨으므로 Azure 비용이 완전히 0”이라고 해석하지 않습니다.
 
 특히 이 구성의 **Premium ACR은 East US 2 공개 종량제 표시 가격 기준 약 USD 1.6666/일**입니다(2026-09-16 조회, 계약 할인·추가 Storage·Private Endpoint 별도). 실습을 보관하지 않을 경우 전용 RG 삭제가 지속 비용을 끝내는 가장 명확한 방법입니다. 가격 출처: [Azure Retail Prices API](https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices), [Container Registry 요금](https://azure.microsoft.com/pricing/details/container-registry/).
+
+## Terminal 없이 정리하기
+
+**설정 파일·Python 설치·CLI 로그인을 끝내지 못했거나, Instance 연결이 끊겼을 때 사용합니다.** 브라우저의 [Azure ML Studio](https://ml.azure.com)에서 강사가 지정한 **구독·Workspace와 본인 리소스 이름**을 먼저 대조합니다. 다른 사람의 리소스가 섞인 전체 목록을 선택하지 않습니다.
+
+| 순서 | Studio에서 할 일 | 완료 기준 |
+|---|---|---|
+| 1 | **Jobs → 본인 실행 중 Job → Cancel**. `LAB_ID`가 있으면 해당 실행명으로 찾음 | 실행 중인 본인 Job이 없음. 취소한 Job은 `Canceled` |
+| 2 | **Endpoints → 본인 endpoint → Delete**. 확인 창의 이름을 대조한 뒤 삭제 | 본인 endpoint가 목록에서 없어짐. blue/green도 함께 삭제됨 |
+| 3 | **Compute → Compute instances → 본인 Instance → Stop** | `Stopped`. 여기서는 Instance를 **Delete하지 않음** |
+| 4 | **Compute → Compute clusters → 지정 Cluster**에서 실제 노드 수 확인 | 전용 Cluster는 실제 0노드. 공유 Cluster는 [개인 종료 기준](#공유-학습-클러스터의-정리) 적용 |
+
+아직 Job을 제출하지 않았다면 1번은 건너뜁니다. **이미 없는 endpoint**나 이미 `Stopped`인 Instance는 다시 만들거나 시작하지 않습니다. 삭제·중지 요청을 눌렀다는 사실이 완료를 뜻하지는 않으므로 목록을 새로 고쳐 최종 상태를 확인합니다.
+
+본인 리소스인지 불명확하거나 Studio 접근·삭제·중지 **권한 오류**가 나면 강사에게 대상 이름과 오류를 전달합니다. 방화벽·역할을 임의로 바꾸지 않으며, 상태가 확인되기 전에는 정리 완료로 표시하지 않습니다. **공유 자원과 잔존 비용**은 강사가 확인합니다.
+
+공식 절차: [Studio에서 endpoint 삭제](https://learn.microsoft.com/azure/machine-learning/how-to-deploy-online-endpoints?view=azureml-api-2#delete-the-endpoint-and-the-deployment), [Compute Instance 중지·관리](https://learn.microsoft.com/azure/machine-learning/how-to-manage-compute-instance?view=azureml-api-2#manage).
 
 ## 실행 증빙 읽는 법
 

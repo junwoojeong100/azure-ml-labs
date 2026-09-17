@@ -9,9 +9,9 @@
 ```mermaid
 flowchart LR
     N["Compute Instance<br/>Notebook·CLI"] -->|"Job 제출"| T["Compute Cluster<br/>전처리·학습·평가"]
-    T -->|"통과 모델을 별도 등록"| M["Workspace Models"]
-    M -.->|"02의 모델 배포"| B["blue<br/>추론 VM 1대"]
-    M -.->|"05의 모델 배포"| G["green<br/>추론 VM 1대"]
+    T -->|"04/05: 통과 모델 등록 명령"| M["Workspace Models"]
+    M -.->|"04: 02의 모델 배포"| B["blue<br/>추론 VM 1대"]
+    M -.->|"06: 05의 모델 배포"| G["green<br/>추론 VM 1대"]
     C["예측 요청"] --> E["Managed Online Endpoint<br/>같은 URL"]
     E -->|"04·롤백: blue 100%"| B
     E -->|"06 전환: green 100%"| G
@@ -20,6 +20,8 @@ flowchart LR
 점선은 등록 모델의 배포, Endpoint에서 나가는 실선은 예측 요청 경로입니다. **blue와 green에 동시에 100%를 보내는 것이 아니라, 실습 단계에 따라 한쪽을 선택**합니다.
 
 Endpoint는 요청을 받는 **주소**, deployment인 blue/green은 모델을 실행하는 **VM을 포함한 배포 단위**입니다. 학습 클러스터에 추론 서버를 함께 올리는 방식도, 사용자가 AKS를 직접 구성하는 방식도 아닙니다.
+
+**학습 완료 → 모델 등록 → 배포 → 기본 경로 전환은 각각 별도 작업**입니다. 학습만 끝내면 Models에 자동 등록되지 않고, 새 모델을 등록하거나 green을 배포해도 기본 요청은 자동으로 green으로 바뀌지 않습니다. 03의 별도 성능 미달 모델은 등록 단계에서 차단되므로 추론 VM에 올리지 않습니다.
 
 ## 이 저장소의 기본 설정
 
