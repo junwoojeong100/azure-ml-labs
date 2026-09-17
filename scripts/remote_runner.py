@@ -55,7 +55,7 @@ def bundle_files() -> list[Path]:
     for pattern in (
         "components/*.py", "components/*.txt", "components/.amlignore", "mlops_lab/*.py", "tests/*.py",
         "infra/*.yml", "infra/*.bicep", "scripts/*.py", ".github/workflows/*.yml",
-        ".gitignore", "notebooks/*.ipynb", "docs/*.md", "README.md",
+        ".gitignore", "notebooks/*.ipynb", "docs/*.md", "docs/execution-evidence.json", "README.md",
     ):
         files.extend(ROOT.glob(pattern))
     return sorted(set(files))
