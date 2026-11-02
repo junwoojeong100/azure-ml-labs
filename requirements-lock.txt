@@ -74,7 +74,7 @@ markupsafe==3.0.3
 marshmallow==3.26.2
 matplotlib==3.11.2
 matplotlib-inline==0.2.2
-mlflow==3.16.0
+mlflow==3.17.2
 mlflow-skinny==3.16.0
 mlflow-tracing==3.16.0
 msal==1.38.0
